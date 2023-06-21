@@ -1,3 +1,11 @@
+if [[ "$JAVA_HOME" != *"temurin-11.jdk"* ]]; then
+  echo "###################################################"
+  echo "### Please use Temurin version 11 for the build ###"
+  echo "###################################################"
+  say "Use Java 11"
+  exit 1
+fi
+
 mvn versions:set -DgenerateBackupPoms=false -DnewVersion=1.4.7-jpro
 
 mvn clean
