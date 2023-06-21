@@ -1,9 +1,7 @@
 name: Repo Sync
 
 on:
-  workflow_run:
-    workflows: [Repo sync]
-    types: [requested]
+  workflow_dispatch:
   schedule:
     - cron: "0 0 * * *" # At the end of every day
 
