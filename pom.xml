@@ -7,7 +7,7 @@
 
   <groupId>ch.qos.logback</groupId>
   <artifactId>logback-parent</artifactId>
-  <version>1.4.8</version>
+  <version>1.4.8-jpro</version>
   <packaging>pom</packaging>
 
   <name>Logback-Parent</name>
@@ -49,7 +49,7 @@
 
   <properties>
     <!-- yyyy-MM-dd'T'HH:mm:ss'Z' -->
-    <project.build.outputTimestamp>2023-06-13T07:59:00Z</project.build.outputTimestamp>    
+    <project.build.outputTimestamp>2023-06-21T15:39:43Z</project.build.outputTimestamp>    
     <jdk.version>11</jdk.version>
     <maven.compiler.release>${jdk.version}</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -410,12 +410,16 @@
   </build>
 
   <distributionManagement>
-
     <repository>
-      <id>sonatype-nexus-staging</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+      <id>artifactory central</id>
+      <name>a0uvvlcxlpyjx-artifactory-primary-0-releases</name>
+      <url>https://sandec.jfrog.io/artifactory/repo</url>
     </repository>
-
+    <snapshotRepository>
+      <id>artifactory snapshots</id>
+      <name>a0uvvlcxlpyjx-artifactory-primary-0-snapshots</name>
+      <url>https://sandec.jfrog.io/artifactory/repo</url>
+    </snapshotRepository>
   </distributionManagement>
 
   <reporting>
