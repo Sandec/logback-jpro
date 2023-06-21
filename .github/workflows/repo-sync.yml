@@ -19,7 +19,12 @@ jobs:
       run: |
         git remote add upstream ${{ secrets.SOURCE_REPO }}
         git fetch upstream
+        git fetch upstream --tags
 
     - name: Merge changes
       run: |
         git merge upstream/master
+
+    - name: Push Tags
+      run: |
+        git push origin --tags
