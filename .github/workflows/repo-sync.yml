@@ -1,27 +1,25 @@
 name: Repo Sync
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: "0 0 * * *" # At the end of every day
+    - cron:  '0 7 * * *'  # This will run the workflow daily at 7 AM UTC
+  workflow_dispatch:     # This allows to manually trigger the workflow
 
 jobs:
-  repo-sync:
-    name: Repo Sync
+  sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: repo-sync/github-sync@v2
-        name: Sync repo to branch
-        with:
-          source_repo: ${{ secrets.SOURCE_REPO }}
-          source_branch: master
-          destination_branch: ${{ secrets.INTERMEDIATE_BRANCH }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: repo-sync/pull-request@v2
-        name: Create pull request
-        with:
-          pr_title: "sync"
-          source_branch: ${{ secrets.INTERMEDIATE_BRANCH }}
-          destination_branch: master
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: master
+        fetch-depth: 0  # this is required to fetch all branches and tags
+
+    - name: Fetch Upstream
+      run: |
+        git remote add upstream ${{ secrets.SOURCE_REPO }}
+        git fetch upstream
+
+    - name: Merge changes
+      run: |
+        git merge upstream/master
