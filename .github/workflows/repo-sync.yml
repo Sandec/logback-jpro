@@ -21,6 +21,7 @@ jobs:
       - uses: repo-sync/pull-request@v2
         name: Create pull request
         with:
+          title: "[Bot] Sync changes from source repo"
           source_branch: ${{ secrets.INTERMEDIATE_BRANCH }}
           destination_branch: master
           github_token: ${{ secrets.GITHUB_TOKEN }}
