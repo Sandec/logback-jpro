@@ -23,6 +23,8 @@ jobs:
 
     - name: Merge changes
       run: |
+        git config --global user.email "jpro-bot@jpro.one"
+        git config --global user.name "JPro Bot"
         git merge upstream/master
 
     - name: Push Tags
