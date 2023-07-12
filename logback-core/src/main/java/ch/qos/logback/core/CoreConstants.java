@@ -22,6 +22,8 @@ public class CoreConstants {
     final public static String STATUS_LISTENER_CLASS_KEY = "logback.statusListenerClass";
     final public static String SYSOUT = "SYSOUT";
 
+    final public static String STDOUT = "STDOUT";
+
     /**
      * Number of idle threads to retain in a context's executor service.
      */
@@ -57,6 +59,8 @@ public class CoreConstants {
 
     public static final String ISO8601_STR = "ISO8601";
     public static final String ISO8601_PATTERN = "yyyy-MM-dd HH:mm:ss,SSS";
+
+    public static final String FILE_TIMESTAMP_PATTERN = "yyyy-MM-dd'T'HHmm";
     public static final String DAILY_DATE_PATTERN = "yyyy-MM-dd";
 
     /**
@@ -223,4 +227,5 @@ public class CoreConstants {
 
     public static final String LOGBACK_CLASSIC_VERSION_MESSAGE = "This is logback-classic version ";
     public static final char JSON_LINE_SEPARATOR = '\n';
+    final public static String MODEL_CONFIG_FILE_EXTENSION = ".smo";
 }

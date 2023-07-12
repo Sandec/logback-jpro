@@ -1,25 +1,23 @@
 package ch.qos.logback.classic.util;
 
 import ch.qos.logback.classic.ClassicConstants;
-import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.classic.spi.Configurator;
+import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.classic.spi.ConfiguratorRank;
+import ch.qos.logback.core.Context;
 import ch.qos.logback.core.LogbackException;
+import ch.qos.logback.core.joran.spi.JoranException;
+import ch.qos.logback.core.spi.Configurator;
 import ch.qos.logback.core.spi.ContextAwareBase;
 import ch.qos.logback.core.status.InfoStatus;
 import ch.qos.logback.core.status.StatusManager;
 import ch.qos.logback.core.util.Loader;
 import ch.qos.logback.core.util.OptionHelper;
-import ch.qos.logback.classic.joran.JoranConfigurator;
-import ch.qos.logback.core.joran.spi.JoranException;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Set;
-
-import static ch.qos.logback.classic.spi.Configurator.RankValue.REGULAR;
 
 /**
  * @since 1.3.0-beta1
@@ -31,8 +29,8 @@ public class DefaultJoranConfigurator extends ContextAwareBase implements Config
     final public static String TEST_AUTOCONFIG_FILE = "logback-test.xml";
 
     @Override
-    public ExecutionStatus configure(LoggerContext loggerContext) {
-        URL url = findURLOfDefaultConfigurationFile(true);
+    public ExecutionStatus configure(Context context) {
+        URL url = performMultiStepConfigurationFileSearch(true);
         if (url != null) {
             try {
                 configureByResource(url);
@@ -46,6 +44,20 @@ public class DefaultJoranConfigurator extends ContextAwareBase implements Config
         }
     }
 
+    private URL performMultiStepConfigurationFileSearch(boolean updateStatus) {
+        ClassLoader myClassLoader = Loader.getClassLoaderOfObject(this);
+        URL url = findConfigFileURLFromSystemProperties(myClassLoader, updateStatus);
+        if (url != null) {
+            return url;
+        }
+
+        url = getResource(TEST_AUTOCONFIG_FILE, myClassLoader, updateStatus);
+        if (url != null) {
+            return url;
+        }
+
+        return getResource(AUTOCONFIG_FILE, myClassLoader, updateStatus);
+    }
     public void configureByResource(URL url) throws JoranException {
         if (url == null) {
             throw new IllegalArgumentException("URL argument cannot be null");
@@ -61,19 +73,16 @@ public class DefaultJoranConfigurator extends ContextAwareBase implements Config
         }
     }
 
+
+    /**
+     * Perform multi-search for configuration file
+     * @param updateStatus
+     * @return
+     *
+     * @deprecated  with no replacement
+     */
     public URL findURLOfDefaultConfigurationFile(boolean updateStatus) {
-        ClassLoader myClassLoader = Loader.getClassLoaderOfObject(this);
-        URL url = findConfigFileURLFromSystemProperties(myClassLoader, updateStatus);
-        if (url != null) {
-            return url;
-        }
-
-        url = getResource(TEST_AUTOCONFIG_FILE, myClassLoader, updateStatus);
-        if (url != null) {
-            return url;
-        }
-
-        return getResource(AUTOCONFIG_FILE, myClassLoader, updateStatus);
+        return performMultiStepConfigurationFileSearch(updateStatus);
     }
 
     private URL findConfigFileURLFromSystemProperties(ClassLoader classLoader, boolean updateStatus) {

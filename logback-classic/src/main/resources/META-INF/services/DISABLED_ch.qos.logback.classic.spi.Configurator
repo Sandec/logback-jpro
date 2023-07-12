@@ -1,2 +1,0 @@
-ch.qos.logback.classic.MinConfigurator
-#ch.qos.logback.classic.util.DefaultJoranConfigurator

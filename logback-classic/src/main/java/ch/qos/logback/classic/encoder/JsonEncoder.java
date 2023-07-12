@@ -71,12 +71,21 @@ public class JsonEncoder extends EncoderBase<ILoggingEvent> {
 
     public static final String THROWABLE_ATTR_NAME = "throwable";
 
-    private static final String CLASS_NAME_ATTR_NAME = "className";
-    private static final String METHOD_NAME_ATTR_NAME = "methodName";
+    private static final String CYCLIC_THROWABLE_ATTR_NAME = "cyclic";
+
+    public static final String CAUSE_ATTR_NAME = "cause";
+
+    public static final String SUPPRESSED_ATTR_NAME = "suppressed";
+
+
+    public static final String COMMON_FRAMES_COUNT_ATTR_NAME = "commonFramesCount";
+
+    public static final String CLASS_NAME_ATTR_NAME = "className";
+    public static final String METHOD_NAME_ATTR_NAME = "methodName";
     private static final String FILE_NAME_ATTR_NAME = "fileName";
     private static final String LINE_NUMBER_ATTR_NAME = "lineNumber";
 
-    private static final String STEP_ARRAY_NAME_ATTRIBUTE = "stepArray";
+    public static final String STEP_ARRAY_NAME_ATTRIBUTE = "stepArray";
 
     private static final char OPEN_OBJ = '{';
     private static final char CLOSE_OBJ = '}';
@@ -139,7 +148,7 @@ public class JsonEncoder extends EncoderBase<ILoggingEvent> {
 
         appendArgumentArray(sb, event);
 
-        appendThrowableProxy(sb, event);
+        appendThrowableProxy(sb,  THROWABLE_ATTR_NAME, event.getThrowableProxy());
         sb.append(CLOSE_OBJ);
         sb.append(CoreConstants.JSON_LINE_SEPARATOR);
         return sb.toString().getBytes(UTF_8_CHARSET);
@@ -174,7 +183,6 @@ public class JsonEncoder extends EncoderBase<ILoggingEvent> {
 
         sb.append(OPEN_OBJ);
 
-
         boolean addComma = false;
         Set<Map.Entry<String, String>> entries = map.entrySet();
         for(Map.Entry<String, String> entry: entries) {
@@ -186,33 +194,81 @@ public class JsonEncoder extends EncoderBase<ILoggingEvent> {
         }
 
         sb.append(CLOSE_OBJ);
-
-
-
     }
 
 
-    private void appendThrowableProxy(StringBuilder sb, ILoggingEvent event) {
-        IThrowableProxy itp = event.getThrowableProxy();
-        sb.append(QUOTE).append(THROWABLE_ATTR_NAME).append(QUOTE_COL);
-        if (itp == null) {
-            sb.append(NULL_STR);
-            return;
+    private void appendThrowableProxy(StringBuilder sb, String attributeName, IThrowableProxy itp) {
+
+
+        // in the nominal case, attributeName != null. However, attributeName will be null for suppressed
+        // IThrowableProxy array, in which case no attribute name is needed
+        if(attributeName != null) {
+            sb.append(QUOTE).append(attributeName).append(QUOTE_COL);
+            if (itp == null) {
+                sb.append(NULL_STR);
+                return;
+            }
         }
 
         sb.append(OPEN_OBJ);
 
         appenderMember(sb, CLASS_NAME_ATTR_NAME, nullSafeStr(itp.getClassName()));
+
         sb.append(VALUE_SEPARATOR);
         appenderMember(sb, MESSAGE_ATTR_NAME, jsonEscape(itp.getMessage()));
+
+
+        if(itp.isCyclic()) {
+            sb.append(VALUE_SEPARATOR);
+            appenderMember(sb, CYCLIC_THROWABLE_ATTR_NAME, jsonEscape("true"));
+        }
+
         sb.append(VALUE_SEPARATOR);
+        appendSTEPArray(sb, itp.getStackTraceElementProxyArray(), itp.getCommonFrames());
 
-        StackTraceElementProxy[] stepArray = itp.getStackTraceElementProxyArray();
+        if(itp.getCommonFrames() != 0) {
+            sb.append(VALUE_SEPARATOR);
+            appenderMemberWithIntValue(sb, COMMON_FRAMES_COUNT_ATTR_NAME, itp.getCommonFrames());
+        }
 
+        IThrowableProxy cause = itp.getCause();
+        if(cause != null) {
+            sb.append(VALUE_SEPARATOR);
+            appendThrowableProxy(sb, CAUSE_ATTR_NAME, cause);
+        }
+
+        IThrowableProxy[] suppressedArray = itp.getSuppressed();
+        if(suppressedArray != null && suppressedArray.length != 0) {
+            sb.append(VALUE_SEPARATOR);
+            sb.append(QUOTE).append(SUPPRESSED_ATTR_NAME).append(QUOTE_COL);
+            sb.append(OPEN_ARRAY);
+            boolean first = true;
+            for(IThrowableProxy suppressedITP: suppressedArray) {
+                if(first) {
+                    first = false;
+                } else {
+                    sb.append(VALUE_SEPARATOR);
+                }
+                appendThrowableProxy(sb, null, suppressedITP);
+            }
+            sb.append(CLOSE_ARRAY);
+        }
+
+
+        sb.append(CLOSE_OBJ);
+
+    }
+
+    private void appendSTEPArray(StringBuilder sb, StackTraceElementProxy[] stepArray, int commonFrames) {
         sb.append(QUOTE).append(STEP_ARRAY_NAME_ATTRIBUTE).append(QUOTE_COL).append(OPEN_ARRAY);
 
         int len = stepArray != null ? stepArray.length : 0;
-        for (int i = 0; i < len; i++) {
+
+        if(commonFrames >= len) {
+            commonFrames = 0;
+        }
+
+        for (int i = 0; i < len - commonFrames; i++) {
             if (i != 0)
                 sb.append(VALUE_SEPARATOR);
 
@@ -236,8 +292,6 @@ public class JsonEncoder extends EncoderBase<ILoggingEvent> {
         }
 
         sb.append(CLOSE_ARRAY);
-        sb.append(CLOSE_OBJ);
-
     }
 
     private void appenderMember(StringBuilder sb, String key, String value) {
