@@ -15,7 +15,6 @@ import ch.qos.logback.classic.ClassicConstants;
 import ch.qos.logback.classic.ClassicTestConstants;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.ConsoleAppender;
@@ -49,7 +48,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class ContextInitializerTest {
 
-    static final String PATH_TO_META_INF_CONF_SERVICE = "META-INF/services/ch.qos.logback.core.spi.Configurator";
+    static final String PATH_TO_META_INF_CONF_SERVICE = "META-INF/services/ch.qos.logback.classic.spi.Configurator";
     static final String FAKE_META_INF_SERVICES = "FAKE_META_INF_SERVICES_ch_qos_logback_classic_spi_Configurator";
     LoggerContext loggerContext = new LoggerContext();
     Logger root = loggerContext.getLogger(Logger.ROOT_LOGGER_NAME);
@@ -155,48 +154,38 @@ public class ContextInitializerTest {
         assertTrue(sll.size() == 1, sll.size() + " should be 1");
     }
 
-        @Test
-        public void shouldConfigureFromXmlFile() throws MalformedURLException, JoranException {
-            assertNull(loggerContext.getObject(CoreConstants.SAFE_JORAN_CONFIGURATION));
+    @Test
+    public void shouldConfigureFromXmlFile() throws MalformedURLException, JoranException {
+        assertNull(loggerContext.getObject(CoreConstants.SAFE_JORAN_CONFIGURATION));
 
-            URL configurationFileUrl = Loader.getResource("BOO_logback-test.xml",
-                    Thread.currentThread().getContextClassLoader());
-            configureByResource(configurationFileUrl);
+        URL configurationFileUrl = Loader.getResource("BOO_logback-test.xml",
+                Thread.currentThread().getContextClassLoader());
+        DefaultJoranConfigurator joranConfigurator = new DefaultJoranConfigurator();
+        joranConfigurator.setContext(loggerContext);
+        joranConfigurator.configureByResource(configurationFileUrl);
 
-            assertNotNull(loggerContext.getObject(CoreConstants.SAFE_JORAN_CONFIGURATION));
-        }
-
-    //    @Test
-    //    public void shouldConfigureFromGroovyScript() throws MalformedURLException, JoranException {
-    //        LoggerContext loggerContext = new LoggerContext();
-    //        ContextInitializer initializer = new ContextInitializer(loggerContext);
-    //        assertNull(loggerContext.getObject(CoreConstants.CONFIGURATION_WATCH_LIST));
-    //
-    //        URL configurationFileUrl = Loader.getResource("test.groovy", Thread.currentThread().getContextClassLoader());
-    //        initializer.configureByResource(configurationFileUrl);
-    //
-    //        assertNotNull(loggerContext.getObject(CoreConstants.CONFIGURATION_WATCH_LIST));
-    //    }
-
-    private  void configureByResource(URL url) throws JoranException {
-        if (url == null) {
-            throw new IllegalArgumentException("URL argument cannot be null");
-        }
-        final String urlString = url.toString();
-        if (urlString.endsWith("xml")) {
-            JoranConfigurator configurator = new JoranConfigurator();
-            configurator.setContext(loggerContext);
-            configurator.doConfigure(url);
-        } else {
-            throw new LogbackException("Unexpected filename extension of file [" + url + "]. Should be .xml");
-        }
+        assertNotNull(loggerContext.getObject(CoreConstants.SAFE_JORAN_CONFIGURATION));
     }
+
+//    @Test
+//    public void shouldConfigureFromGroovyScript() throws MalformedURLException, JoranException {
+//        LoggerContext loggerContext = new LoggerContext();
+//        ContextInitializer initializer = new ContextInitializer(loggerContext);
+//        assertNull(loggerContext.getObject(CoreConstants.CONFIGURATION_WATCH_LIST));
+//
+//        URL configurationFileUrl = Loader.getResource("test.groovy", Thread.currentThread().getContextClassLoader());
+//        initializer.configureByResource(configurationFileUrl);
+//
+//        assertNotNull(loggerContext.getObject(CoreConstants.CONFIGURATION_WATCH_LIST));
+//    }
 
     @Test
     public void shouldThrowExceptionIfUnexpectedConfigurationFileExtension() throws JoranException {
         URL configurationFileUrl = Loader.getResource("README.txt", Thread.currentThread().getContextClassLoader());
         try {
-            this.configureByResource(configurationFileUrl);
+            DefaultJoranConfigurator joranConfigurator = new DefaultJoranConfigurator();
+            joranConfigurator.setContext(loggerContext);
+            joranConfigurator.configureByResource(configurationFileUrl);
             fail("Should throw LogbackException");
         } catch (LogbackException expectedException) {
             // pass

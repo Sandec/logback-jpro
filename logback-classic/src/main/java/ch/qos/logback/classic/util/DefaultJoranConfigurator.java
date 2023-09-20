@@ -1,12 +1,13 @@
 package ch.qos.logback.classic.util;
 
 import ch.qos.logback.classic.ClassicConstants;
+import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.classic.spi.ConfiguratorRank;
 import ch.qos.logback.core.Context;
 import ch.qos.logback.core.LogbackException;
 import ch.qos.logback.core.joran.spi.JoranException;
-import ch.qos.logback.core.spi.Configurator;
+import ch.qos.logback.classic.spi.Configurator;
 import ch.qos.logback.core.spi.ContextAwareBase;
 import ch.qos.logback.core.status.InfoStatus;
 import ch.qos.logback.core.status.StatusManager;
@@ -22,14 +23,12 @@ import java.util.Set;
 /**
  * @since 1.3.0-beta1
  */
-@ConfiguratorRank(value = ConfiguratorRank.Value.REGULAR)
+// Note that DefaultJoranConfigurator is invoked via reflection
+@ConfiguratorRank(value = ConfiguratorRank.NOMINAL)
 public class DefaultJoranConfigurator extends ContextAwareBase implements Configurator {
 
-    final public static String AUTOCONFIG_FILE = "logback.xml";
-    final public static String TEST_AUTOCONFIG_FILE = "logback-test.xml";
-
     @Override
-    public ExecutionStatus configure(Context context) {
+    public ExecutionStatus configure(LoggerContext context) {
         URL url = performMultiStepConfigurationFileSearch(true);
         if (url != null) {
             try {
@@ -37,7 +36,7 @@ public class DefaultJoranConfigurator extends ContextAwareBase implements Config
             } catch (JoranException e) {
                 e.printStackTrace();
             }
-            // we tried and that counts Mary.
+            // You tried and that counts Mary.
             return ExecutionStatus.DO_NOT_INVOKE_NEXT_IF_ANY;
         } else {
             return ExecutionStatus.INVOKE_NEXT_IF_ANY;
@@ -51,12 +50,12 @@ public class DefaultJoranConfigurator extends ContextAwareBase implements Config
             return url;
         }
 
-        url = getResource(TEST_AUTOCONFIG_FILE, myClassLoader, updateStatus);
+        url = getResource(ClassicConstants.TEST_AUTOCONFIG_FILE, myClassLoader, updateStatus);
         if (url != null) {
             return url;
         }
 
-        return getResource(AUTOCONFIG_FILE, myClassLoader, updateStatus);
+        return getResource(ClassicConstants.AUTOCONFIG_FILE, myClassLoader, updateStatus);
     }
     public void configureByResource(URL url) throws JoranException {
         if (url == null) {

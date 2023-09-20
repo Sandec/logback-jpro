@@ -332,7 +332,7 @@ public class LoggingEvent implements ILoggingEvent {
         return sequenceNumber;
     }
 
-    public void setSquenceNumber(long sn) {
+    public void setSequenceNumber(long sn) {
         sequenceNumber = sn;
     }
 
@@ -404,7 +404,7 @@ public class LoggingEvent implements ILoggingEvent {
     public Map<String, String> getMDCPropertyMap() {
         // populate mdcPropertyMap if null
         if (mdcPropertyMap == null) {
-            LogbackMDCAdapter mdcAdapter = loggerContext.getMDCAdapter();
+            MDCAdapter mdcAdapter = loggerContext.getMDCAdapter();
             if (mdcAdapter instanceof LogbackMDCAdapter)
                 mdcPropertyMap = ((LogbackMDCAdapter) mdcAdapter).getPropertyMap();
             else

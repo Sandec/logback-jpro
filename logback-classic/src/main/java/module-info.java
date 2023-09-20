@@ -1,3 +1,4 @@
+import ch.qos.logback.classic.spi.Configurator;
 
 module ch.qos.logback.classic {
   // requires static means optional
@@ -17,9 +18,8 @@ module ch.qos.logback.classic {
   requires org.slf4j;
 
   requires ch.qos.logback.core;
-  uses ch.qos.logback.core.spi.Configurator;
   provides org.slf4j.spi.SLF4JServiceProvider with ch.qos.logback.classic.spi.LogbackServiceProvider;
-  provides ch.qos.logback.core.spi.Configurator with ch.qos.logback.classic.joran.SerializedModelConfigurator;
+  uses ch.qos.logback.classic.spi.Configurator;
 
   exports ch.qos.logback.classic;
   exports ch.qos.logback.classic.boolex;
