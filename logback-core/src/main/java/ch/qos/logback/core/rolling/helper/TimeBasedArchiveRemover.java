@@ -1,15 +1,13 @@
 /**
- * Logback: the reliable, generic, fast and flexible logging framework.
- * Copyright (C) 1999-2015, QOS.ch. All rights reserved.
+ * Logback: the reliable, generic, fast and flexible logging framework. Copyright (C) 1999-2015, QOS.ch. All rights
+ * reserved.
  *
- * This program and the accompanying materials are dual-licensed under
- * either the terms of the Eclipse Public License v1.0 as published by
- * the Eclipse Foundation
+ * This program and the accompanying materials are dual-licensed under either the terms of the Eclipse Public License
+ * v1.0 as published by the Eclipse Foundation
  *
- *   or (per the licensee's choosing)
+ * or (per the licensee's choosing)
  *
- * under the terms of the GNU Lesser General Public License version 2.1
- * as published by the Free Software Foundation.
+ * under the terms of the GNU Lesser General Public License version 2.1 as published by the Free Software Foundation.
  */
 package ch.qos.logback.core.rolling.helper;
 
@@ -49,6 +47,18 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
 
     int callCount = 0;
 
+    public Future<?> cleanAsynchronously(Instant now) {
+        ArhiveRemoverRunnable runnable = new ArhiveRemoverRunnable(now);
+        ExecutorService alternateExecutorService = context.getAlternateExecutorService();
+        Future<?> future = alternateExecutorService.submit(runnable);
+        return future;
+    }
+
+    /**
+     * Called from the cleaning thread.
+     *
+     * @param now
+     */
     @Override
     public void clean(Instant now) {
 
@@ -86,14 +96,30 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
         File[] matchingFileArray = getFilesInPeriod(instantOfPeriodToClean);
 
         for (File f : matchingFileArray) {
-            addInfo("deleting " + f);
-            f.delete();
+            checkAndDeleteFile(f);
         }
 
         if (parentClean && matchingFileArray.length > 0) {
             File parentDir = getParentDir(matchingFileArray[0]);
             removeFolderIfEmpty(parentDir);
         }
+    }
+
+    private boolean checkAndDeleteFile(File f) {
+        addInfo("deleting " + f);
+        if (f == null) {
+            addWarn("Cannot delete empty file");
+            return false;
+        } else if (!f.exists()) {
+            addWarn("Cannot delete non existent file");
+            return false;
+        }
+       
+        boolean result = f.delete();
+        if (!result) {
+            addWarn("Failed to delete file " + f.toString());
+        }
+        return result;
     }
 
     void capTotalSize(Instant now) {
@@ -107,8 +133,10 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
                 long size = f.length();
                 if (totalSize + size > totalSizeCap) {
                     addInfo("Deleting [" + f + "]" + " of size " + new FileSize(size));
+                    // assume that deletion attempt will succeed.
                     totalRemoved += size;
-                    f.delete();
+
+                    checkAndDeleteFile(f);
                 }
                 totalSize += size;
             }
@@ -141,7 +169,7 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
 
     /**
      * Computes whether the fileNamePattern may create sub-folders.
-     * 
+     *
      * @param fileNamePattern
      * @return
      */
@@ -183,9 +211,8 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
     }
 
     /**
-     * Will remove the directory passed as parameter if empty. After that, if the
-     * parent is also becomes empty, remove the parent dir as well but at most 3
-     * times.
+     * Will remove the directory passed as parameter if empty. After that, if the parent is also becomes empty, remove
+     * the parent dir as well but at most 3 times.
      *
      * @param dir
      * @param depth
@@ -197,7 +224,7 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
         }
         if (dir.isDirectory() && FileFilterUtil.isEmptyDirectory(dir)) {
             addInfo("deleting folder [" + dir + "]");
-            dir.delete();
+            checkAndDeleteFile(dir);
             removeFolderIfEmpty(dir.getParentFile(), depth + 1);
         }
     }
@@ -218,12 +245,7 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
         return "c.q.l.core.rolling.helper.TimeBasedArchiveRemover";
     }
 
-    public Future<?> cleanAsynchronously(Instant now) {
-        ArhiveRemoverRunnable runnable = new ArhiveRemoverRunnable(now);
-        ExecutorService executorService = context.getExecutorService();
-        Future<?> future = executorService.submit(runnable);
-        return future;
-    }
+
 
     public class ArhiveRemoverRunnable implements Runnable {
         Instant now;

@@ -23,6 +23,7 @@ import ch.qos.logback.core.rolling.helper.ArchiveRemover;
 import ch.qos.logback.core.rolling.helper.CompressionMode;
 import ch.qos.logback.core.rolling.helper.FileFilterUtil;
 import ch.qos.logback.core.rolling.helper.SizeAndTimeBasedArchiveRemover;
+import ch.qos.logback.core.util.Duration;
 import ch.qos.logback.core.util.FileSize;
 import ch.qos.logback.core.util.DefaultInvocationGate;
 import ch.qos.logback.core.util.InvocationGate;
@@ -40,7 +41,7 @@ public class SizeAndTimeBasedFNATP<E> extends TimeBasedFileNamingAndTriggeringPo
     volatile int currentPeriodsCounter = 0;
     FileSize maxFileSize;
 
-    Integer checkIncrement = null;
+    Duration checkIncrement = null;
 
     static String MISSING_INT_TOKEN = "Missing integer token, that is %i, in FileNamePattern [";
     static String MISSING_DATE_TOKEN = "Missing date token, that is %d, in FileNamePattern [";
@@ -157,6 +158,10 @@ public class SizeAndTimeBasedFNATP<E> extends TimeBasedFileNamingAndTriggeringPo
             return true;
         }
 
+        return checkSizeBasedTrigger(activeFile, currentTime);
+    }
+
+    private boolean checkSizeBasedTrigger(File activeFile, long currentTime) {
         // next check for roll-over based on size
         if (invocationGate.isTooSoon(currentTime)) {
             return false;
@@ -181,11 +186,11 @@ public class SizeAndTimeBasedFNATP<E> extends TimeBasedFileNamingAndTriggeringPo
         return false;
     }
 
-    public Integer getCheckIncrement() {
+    public Duration getCheckIncrement() {
         return checkIncrement;
     }
 
-    public void setCheckIncrement(Integer checkIncrement) {
+    public void setCheckIncrement(Duration checkIncrement) {
         this.checkIncrement = checkIncrement;
     }
 
