@@ -8,7 +8,7 @@
   <parent>
     <groupId>ch.qos.logback</groupId>
     <artifactId>logback-parent</artifactId>
-    <version>1.4.14</version>
+    <version>1.5.18</version>
   </parent>
 
   <artifactId>logback-classic</artifactId>
@@ -209,26 +209,7 @@
         </dependencies>
 
         <executions>
-          <!-- Disabled osgi tests given current OSGi/ServiceLoader integration failure -->
-          <!--
-          <execution>
-
-            <id>ant-osgi-test</id>
-            <phase>package</phase>
-            <configuration>
-              <target>
-                <property name="currentVersion" value="${project.version}"/>
-                <property name="slf4j.version" value="${slf4j.version}"/>
-                <property name="basedir" value="${basedir}"/>
-                <ant antfile="${basedir}/osgi-build.xml"/>
-              </target>
-            </configuration>
-            <goals>
-              <goal>run</goal>
-            </goals>
-          </execution>
-           -->
-	  <execution>
+           <execution>
             <id>ant-integration-test</id>
             <phase>package</phase>
             <configuration>
@@ -269,13 +250,12 @@
                 --add-modules jakarta.mail
                 --add-modules jakarta.servlet
                 --add-opens ch.qos.logback.core/ch.qos.logback.core.testUtil=java.naming
+                --add-opens ch.qos.logback.classic/ch.qos.logback.classic.issue.github450=ch.qos.logback.core
                 --add-opens ch.qos.logback.classic/ch.qos.logback.classic.testUtil=ch.qos.logback.core
                 --add-opens ch.qos.logback.classic/ch.qos.logback.classic.jsonTest=ALL-UNNAMED
               </argLine>
               <parallel>classes</parallel>
               <threadCount>8</threadCount>
-
-              <!--<useUnlimitedThreads>false</useUnlimitedThreads>-->
               <forkCount>1C</forkCount>
               <reuseForks>true</reuseForks>
               <reportFormat>plain</reportFormat>
@@ -290,6 +270,7 @@
                 <exclude>org.slf4j.implTest.InitializationOutputTest.java</exclude>
                 <exclude>ch.qos.logback.classic.util.ContextInitializerTest.java</exclude>
                 <exclude>ch.qos.logback.classic.spi.InvocationTest.java</exclude>
+                <exclude>ch.qos.logback.classic.issue.github450.SLF4JIssue450Test</exclude>
               </excludes>
             </configuration>
           </execution>
@@ -302,11 +283,15 @@
             <configuration>
               <forkCount>4</forkCount>
               <reuseForks>false</reuseForks>
+              <argLine>
+                --add-opens ch.qos.logback.classic/ch.qos.logback.classic.issue.github450=ch.qos.logback.core
+              </argLine>
               <includes>
                 <include>org.slf4j.implTest.MultithreadedInitializationTest.java</include>
                 <include>org.slf4j.implTest.InitializationOutputTest.java</include>
                 <include>ch.qos.logback.classic.util.ContextInitializerTest.java</include>
                 <include>ch.qos.logback.classic.spi.InvocationTest.java</include>
+                <include>ch.qos.logback.classic.issue.github450.SLF4JIssue450Test</include>
               </includes>
             </configuration>
           </execution>

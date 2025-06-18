@@ -11,7 +11,9 @@ import org.slf4j.LoggerFactoryFriend;
 
 import ch.qos.logback.classic.testUtil.StringPrintStream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.slf4j.helpers.Reporter.SLF4J_INTERNAL_VERBOSITY_KEY;
 
 public class InvocationTest {
 
@@ -19,8 +21,11 @@ public class InvocationTest {
     final String loggerName = this.getClass().getName();
     StringPrintStream sps = new StringPrintStream(oldErr, true);
 
+    String CONNECTED_WITH_MESSAGE = "SLF4J(D): Connected with provider of type [ch.qos.logback.classic.spi.LogbackServiceProvider]";
+
     @BeforeEach
     public void setUp() throws Exception {
+        System.setProperty(SLF4J_INTERNAL_VERBOSITY_KEY, "debug");
         System.setErr(sps);
     }
 
@@ -28,6 +33,7 @@ public class InvocationTest {
     public void tearDown() throws Exception {
         LoggerFactoryFriend.reset();
         System.setErr(oldErr);
+        System.clearProperty(SLF4J_INTERNAL_VERBOSITY_KEY);
     }
 
     // https://jira.qos.ch/browse/LOGBACK-1568 would have been prevented
@@ -37,7 +43,8 @@ public class InvocationTest {
         Logger logger = LoggerFactory.getLogger(this.getClass());
         logger.debug("Hello world.");
 
-        assertTrue(sps.stringList.isEmpty());
+        assertEquals(1, sps.stringList.size());
+        assertEquals(CONNECTED_WITH_MESSAGE, sps.stringList.get(0));
 
     }
 

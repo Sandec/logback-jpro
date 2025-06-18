@@ -18,6 +18,7 @@ import ch.qos.logback.classic.model.ConfigurationModel;
 import ch.qos.logback.core.Context;
 import ch.qos.logback.core.model.Model;
 import ch.qos.logback.core.model.processor.ModelHandlerBase;
+import ch.qos.logback.core.model.processor.ModelHandlerException;
 import ch.qos.logback.core.model.processor.ModelInterpretationContext;
 import ch.qos.logback.core.status.OnConsoleStatusListener;
 import ch.qos.logback.core.util.ContextUtil;
@@ -69,7 +70,7 @@ public class ConfigurationModelHandler extends ModelHandlerBase {
         }
         
 
-        if (!(OptionHelper.isNullOrEmpty(debugAttrib) || debugAttrib.equalsIgnoreCase(FALSE.toString())
+        if (!(OptionHelper.isNullOrEmptyOrAllSpaces(debugAttrib) || debugAttrib.equalsIgnoreCase(FALSE.toString())
                 || debugAttrib.equalsIgnoreCase(NULL_STR))) {
             StatusListenerConfigHelper.addOnConsoleListenerInstance(context, new OnConsoleStatusListener());
         }
@@ -83,14 +84,24 @@ public class ConfigurationModelHandler extends ModelHandlerBase {
 
         ContextUtil contextUtil = new ContextUtil(context);
         contextUtil.addGroovyPackages(lc.getFrameworkPackages());
+
+
     }
 
     protected void processScanAttrib(ModelInterpretationContext mic, ConfigurationModel configurationModel) {
         String scanStr = mic.subst(configurationModel.getScanStr());
-        if (!OptionHelper.isNullOrEmpty(scanStr) && !"false".equalsIgnoreCase(scanStr)) {
+        if (!OptionHelper.isNullOrEmptyOrAllSpaces(scanStr) && !"false".equalsIgnoreCase(scanStr)) {
             addInfo("Skipping ReconfigureOnChangeTask registration");
         }
     }
 
+    protected void postProcessScanAttrib(ModelInterpretationContext mic, ConfigurationModel configurationModel) {
 
+    }
+
+    @Override
+    public void postHandle(ModelInterpretationContext mic, Model model) throws ModelHandlerException {
+        ConfigurationModel configurationModel = (ConfigurationModel) model;
+
+    }
 }

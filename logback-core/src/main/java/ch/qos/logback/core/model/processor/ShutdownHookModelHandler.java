@@ -20,6 +20,7 @@ import ch.qos.logback.core.hook.ShutdownHook;
 import ch.qos.logback.core.hook.ShutdownHookBase;
 import ch.qos.logback.core.model.Model;
 import ch.qos.logback.core.model.ShutdownHookModel;
+import ch.qos.logback.core.util.ContextUtil;
 import ch.qos.logback.core.util.DynamicClassLoadingException;
 import ch.qos.logback.core.util.IncompatibleClassException;
 import ch.qos.logback.core.util.OptionHelper;
@@ -51,7 +52,7 @@ public class ShutdownHookModelHandler extends ModelHandlerBase {
         ShutdownHookModel shutdownHookModel = (ShutdownHookModel) model;
 
         String className = shutdownHookModel.getClassName();
-        if (OptionHelper.isNullOrEmpty(className)) {
+        if (OptionHelper.isNullOrEmptyOrAllSpaces(className)) {
             className = DEFAULT_SHUTDOWN_HOOK_CLASSNAME;
             addInfo("Assuming className [" + className + "]");
         } else {
@@ -87,11 +88,8 @@ public class ShutdownHookModelHandler extends ModelHandlerBase {
         if (o != hook) {
             addWarn("The object on the top the of the stack is not the hook object pushed earlier.");
         } else {
-            Thread hookThread = new Thread(hook, "Logback shutdown hook [" + context.getName() + "]");
-            addInfo("Registering shutdown hook with JVM runtime.");
-            context.putObject(CoreConstants.SHUTDOWN_HOOK_THREAD, hookThread);
-            Runtime.getRuntime().addShutdownHook(hookThread);
-
+            ContextUtil contextUtil = new ContextUtil(context);
+            contextUtil.addOrReplaceShutdownHook(hook);
             mic.popObject();
         }
     }

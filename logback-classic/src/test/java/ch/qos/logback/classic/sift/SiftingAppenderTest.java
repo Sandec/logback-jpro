@@ -29,7 +29,7 @@ import ch.qos.logback.core.FileAppender;
 import ch.qos.logback.core.joran.spi.JoranException;
 import ch.qos.logback.core.read.ListAppender;
 import ch.qos.logback.core.rolling.RollingFileAppender;
-import ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP;
+import ch.qos.logback.core.rolling.SizeAndTimeBasedFileNamingAndTriggeringPolicy;
 import ch.qos.logback.core.rolling.TimeBasedRollingPolicy;
 import ch.qos.logback.core.sift.AppenderFactory;
 import ch.qos.logback.core.sift.AppenderTracker;
@@ -46,7 +46,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.slf4j.MDC;
 
 import java.util.List;
 
@@ -244,6 +243,7 @@ public class SiftingAppenderTest {
         SiftingAppender sa = (SiftingAppender) root.getAppender("SIFT");
         StringListAppender<ILoggingEvent> listAppender = (StringListAppender<ILoggingEvent>) sa.getAppenderTracker().find(mdcVal);
         assertNotNull(listAppender);
+
         List<String> strList = listAppender.strList;
         assertEquals(1, listAppender.strList.size());
         assertEquals(prefix + msg, strList.get(0));
@@ -356,7 +356,7 @@ public class SiftingAppenderTest {
                 policy.setParent(appender);
                 policy.setCleanHistoryOnStart(true);
 
-                SizeAndTimeBasedFNATP<ILoggingEvent> innerpolicy = new SizeAndTimeBasedFNATP<ILoggingEvent>();
+                SizeAndTimeBasedFileNamingAndTriggeringPolicy<ILoggingEvent> innerpolicy = new SizeAndTimeBasedFileNamingAndTriggeringPolicy<ILoggingEvent>();
                 innerpolicy.setContext(context);
                 innerpolicy.setMaxFileSize(FileSize.valueOf("5KB"));
                 innerpolicy.setTimeBasedRollingPolicy(policy);

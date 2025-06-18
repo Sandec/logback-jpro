@@ -29,14 +29,14 @@ import ch.qos.logback.core.spi.ConfigurationEvent;
 import ch.qos.logback.core.spi.ContextAwareBase;
 import ch.qos.logback.core.status.StatusUtil;
 
-import static ch.qos.logback.core.spi.ConfigurationEvent.newConfigurationChangeDetectorRunningEvent;
-import static ch.qos.logback.core.spi.ConfigurationEvent.newConfigurationEndedEvent;
+import static ch.qos.logback.core.CoreConstants.PROPERTIES_FILE_EXTENSION;
+import static ch.qos.logback.core.spi.ConfigurationEvent.*;
 
 public class ReconfigureOnChangeTask extends ContextAwareBase implements Runnable {
 
     public static final String DETECTED_CHANGE_IN_CONFIGURATION_FILES = "Detected change in configuration files.";
-    static final String RE_REGISTERING_PREVIOUS_SAFE_CONFIGURATION = "Re-registering previous fallback configuration once more as a fallback configuration point";
-    static final String FALLING_BACK_TO_SAFE_CONFIGURATION = "Given previous errors, falling back to previously registered safe configuration.";
+    public static final String RE_REGISTERING_PREVIOUS_SAFE_CONFIGURATION = "Re-registering previous fallback configuration once more as a fallback configuration point";
+    public static final String FALLING_BACK_TO_SAFE_CONFIGURATION = "Given previous errors, falling back to previously registered safe configuration.";
 
     long birthdate = System.currentTimeMillis();
     List<ReconfigureOnChangeTaskListener> listeners = null;
@@ -53,22 +53,46 @@ public class ReconfigureOnChangeTask extends ContextAwareBase implements Runnabl
             return;
         }
 
-        List<File> filesToWatch = configurationWatchList.getCopyOfFileWatchList();
-        if (filesToWatch == null || filesToWatch.isEmpty()) {
-            addInfo("Empty watch file list. Disabling ");
+        if (configurationWatchList.emptyWatchLists()) {
+            addInfo("Both watch lists are empty. Disabling ");
             return;
         }
 
-        if (!configurationWatchList.changeDetected()) {
+        File changedFile = configurationWatchList.changeDetectedInFile();
+        URL changedURL = configurationWatchList.changeDetectedInURL();
+
+        if (changedFile == null && changedURL == null) {
             return;
         }
+
         context.fireConfigurationEvent(ConfigurationEvent.newConfigurationChangeDetectedEvent(this));
-        cancelFutureInvocationsOfThisTaskInstance();
-
-        URL mainConfigurationURL = configurationWatchList.getMainURL();
-
         addInfo(DETECTED_CHANGE_IN_CONFIGURATION_FILES);
+
+        if(changedFile != null) {
+            changeInFile(changedFile, configurationWatchList);
+        }
+
+        if(changedURL != null) {
+            changeInURL(changedURL);
+        }
+    }
+
+    private void changeInURL(URL url) {
+        String path = url.getPath();
+        if(path.endsWith(PROPERTIES_FILE_EXTENSION)) {
+            runPropertiesConfigurator(url);
+        }
+    }
+    private void changeInFile(File changedFile, ConfigurationWatchList configurationWatchList) {
+        if(changedFile.getName().endsWith(PROPERTIES_FILE_EXTENSION)) {
+            runPropertiesConfigurator(changedFile);
+            return;
+        }
+
+        // ======== fuller processing below
         addInfo(CoreConstants.RESET_MSG_PREFIX + "named [" + context.getName() + "]");
+        cancelFutureInvocationsOfThisTaskInstance();
+        URL mainConfigurationURL = configurationWatchList.getMainURL();
 
         LoggerContext lc = (LoggerContext) context;
         if (mainConfigurationURL.toString().endsWith("xml")) {
@@ -76,7 +100,24 @@ public class ReconfigureOnChangeTask extends ContextAwareBase implements Runnabl
         } else if (mainConfigurationURL.toString().endsWith("groovy")) {
             addError("Groovy configuration disabled due to Java 9 compilation issues.");
         }
-        //fireDoneReconfiguring();
+    }
+
+    private void runPropertiesConfigurator(Object changedObject) {
+        addInfo("Will run PropertyConfigurator on "+changedObject);
+        PropertiesConfigurator propertiesConfigurator = new PropertiesConfigurator();
+        propertiesConfigurator.setContext(context);
+        try {
+            if(changedObject instanceof File) {
+                File changedFile = (File) changedObject;
+                propertiesConfigurator.doConfigure(changedFile);
+            } else if(changedObject instanceof URL) {
+                URL changedURL = (URL) changedObject;
+                propertiesConfigurator.doConfigure(changedURL);
+            }
+            context.fireConfigurationEvent(newPartialConfigurationEndedSuccessfullyEvent(this));
+        } catch (JoranException e) {
+            addError("Failed to reload "+ changedObject);
+        }
     }
 
     private void cancelFutureInvocationsOfThisTaskInstance() {
@@ -92,6 +133,7 @@ public class ReconfigureOnChangeTask extends ContextAwareBase implements Runnabl
         StatusUtil statusUtil = new StatusUtil(context);
         Model failsafeTop = jc.recallSafeConfiguration();
         URL mainURL = ConfigurationWatchListUtil.getMainWatchURL(context);
+        addInfo("Resetting loggerContext ["+lc.getName()+"]");
         lc.reset();
         long threshold = System.currentTimeMillis();
         try {
@@ -129,8 +171,7 @@ public class ReconfigureOnChangeTask extends ContextAwareBase implements Runnabl
                 joranConfigurator.processModel(failsafeTop);
                 addInfo(RE_REGISTERING_PREVIOUS_SAFE_CONFIGURATION);
                 joranConfigurator.registerSafeConfiguration(failsafeTop);
-                context.fireConfigurationEvent(newConfigurationEndedEvent(this));
-                addInfo("after registerSafeConfiguration");
+                context.fireConfigurationEvent(newConfigurationEndedSuccessfullyEvent(this));
             } catch (Exception e) {
                 addError("Unexpected exception thrown by a configuration considered safe.", e);
             }

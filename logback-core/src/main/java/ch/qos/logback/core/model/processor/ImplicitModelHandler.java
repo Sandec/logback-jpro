@@ -23,6 +23,7 @@ import ch.qos.logback.core.joran.util.beans.BeanDescriptionCache;
 import ch.qos.logback.core.model.ComponentModel;
 import ch.qos.logback.core.model.ImplicitModel;
 import ch.qos.logback.core.model.Model;
+import ch.qos.logback.core.model.ModelConstants;
 import ch.qos.logback.core.spi.ContextAware;
 import ch.qos.logback.core.spi.LifeCycle;
 import ch.qos.logback.core.util.AggregationType;
@@ -33,8 +34,7 @@ public class ImplicitModelHandler extends ModelHandlerBase {
 
     private final BeanDescriptionCache beanDescriptionCache;
     private ImplicitModelData implicitModelData;
-    
-    static final String PARENT_PROPPERTY_KEY = "parent";
+
     static public final String IGNORING_UNKNOWN_PROP = "Ignoring unknown property";
 
     boolean inError = false;
@@ -130,7 +130,7 @@ public class ImplicitModelHandler extends ModelHandlerBase {
         Class<?> componentClass = null;
         try {
 
-            if (!OptionHelper.isNullOrEmpty(fqcn)) {
+            if (!OptionHelper.isNullOrEmptyOrAllSpaces(fqcn)) {
                 componentClass = Loader.loadClass(fqcn, context);
             } else {
                 // guess class name via implicit rules
@@ -146,7 +146,7 @@ public class ImplicitModelHandler extends ModelHandlerBase {
                 return;
             }
 
-            if (OptionHelper.isNullOrEmpty(fqcn)) {
+            if (OptionHelper.isNullOrEmptyOrAllSpaces(fqcn)) {
                 addInfo("Assuming default type [" + componentClass.getName() + "] for [" + componentModel.getTag()
                         + "] property");
             }
@@ -196,15 +196,14 @@ public class ImplicitModelHandler extends ModelHandlerBase {
         nestedBean.setContext(context);
 
         // have the nested element point to its parent if possible
-        if (nestedBean.computeAggregationType(PARENT_PROPPERTY_KEY) == AggregationType.AS_COMPLEX_PROPERTY) {
-            nestedBean.setComplexProperty(PARENT_PROPPERTY_KEY, imdComplex.parentBean.getObj());
+        if (nestedBean.computeAggregationType(ModelConstants.PARENT_PROPPERTY_KEY) == AggregationType.AS_COMPLEX_PROPERTY) {
+            nestedBean.setComplexProperty(ModelConstants.PARENT_PROPPERTY_KEY, imdComplex.parentBean.getObj());
         }
 
         // start the nested complex property if it implements LifeCycle and is not
         // marked with a @NoAutoStart annotation
         Object nestedComplexProperty = imdComplex.getNestedComplexProperty();
-        if (nestedComplexProperty instanceof LifeCycle
-                && NoAutoStartUtil.notMarkedWithNoAutoStart(nestedComplexProperty)) {
+        if (NoAutoStartUtil.shouldBeStarted(nestedComplexProperty)) {
             ((LifeCycle) nestedComplexProperty).start();
         }
 

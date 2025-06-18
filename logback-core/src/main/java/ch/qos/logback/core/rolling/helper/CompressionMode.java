@@ -14,5 +14,12 @@
 package ch.qos.logback.core.rolling.helper;
 
 public enum CompressionMode {
-    NONE, GZ, ZIP;
+    NONE, GZ, ZIP, XZ;
+
+    static public String GZ_SUFFIX = ".gz";
+    static public String XZ_SUFFIX = ".xz";
+    static public String ZIP_SUFFIX = ".zip";
+
+
+
 }

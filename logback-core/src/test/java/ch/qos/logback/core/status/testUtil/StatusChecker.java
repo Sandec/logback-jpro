@@ -56,7 +56,7 @@ public class StatusChecker extends StatusUtil {
     }
 
     public void assertIsErrorFree(long treshhold) {
-        Assertions.assertTrue(isErrorFree(0));
+        Assertions.assertTrue(isErrorFree(treshhold));
     }
 
     public void assertIsWarningOrErrorFree() {

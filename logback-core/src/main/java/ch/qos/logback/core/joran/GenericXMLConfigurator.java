@@ -12,8 +12,7 @@
 package ch.qos.logback.core.joran;
 
 import static ch.qos.logback.core.CoreConstants.SAFE_JORAN_CONFIGURATION;
-import static ch.qos.logback.core.spi.ConfigurationEvent.newConfigurationEndedEvent;
-import static ch.qos.logback.core.spi.ConfigurationEvent.newConfigurationStartedEvent;
+import static ch.qos.logback.core.spi.ConfigurationEvent.*;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -22,6 +21,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.xml.sax.InputSource;
 
@@ -51,14 +51,15 @@ public abstract class GenericXMLConfigurator extends ContextAwareBase {
     public ModelInterpretationContext getModelInterpretationContext() {
         return this.modelInterpretationContext;
     }
+    private RuleStore ruleStore;
 
     public final void doConfigure(URL url) throws JoranException {
         InputStream in = null;
         try {
             informContextOfURLUsedForConfiguration(getContext(), url);
             URLConnection urlConnection = url.openConnection();
-            // per http://jira.qos.ch/browse/LBCORE-105
-            // per http://jira.qos.ch/browse/LBCORE-127
+            // per http://jira.qos.ch/browse/LOGBACK-117  LBCORE-105
+            // per http://jira.qos.ch/browse/LOGBACK-163  LBCORE-127
             urlConnection.setUseCaches(false);
 
             in = urlConnection.getInputStream();
@@ -135,12 +136,19 @@ public abstract class GenericXMLConfigurator extends ContextAwareBase {
     }
 
     protected void buildSaxEventInterpreter(List<SaxEvent> saxEvents) {
-        RuleStore rs = new SimpleRuleStore(context);
+        RuleStore rs = getRuleStore();
         addElementSelectorAndActionAssociations(rs);
         this.saxEventInterpreter = new SaxEventInterpreter(context, rs, initialElementPath(), saxEvents);
         SaxEventInterpretationContext interpretationContext = saxEventInterpreter.getSaxEventInterpretationContext();
         interpretationContext.setContext(context);
         setImplicitRuleSupplier(saxEventInterpreter);
+    }
+
+    public RuleStore getRuleStore() {
+        if(this.ruleStore == null) {
+            this.ruleStore = new SimpleRuleStore(context);
+        }
+        return this.ruleStore;
     }
 
     protected void buildModelInterpretationContext() {
@@ -174,8 +182,11 @@ public abstract class GenericXMLConfigurator extends ContextAwareBase {
         if (statusUtil.noXMLParsingErrorsOccurred(threshold)) {
             addInfo("Registering current configuration as safe fallback point");
             registerSafeConfiguration(top);
+            context.fireConfigurationEvent(newConfigurationEndedSuccessfullyEvent(this));
+        } else {
+            context.fireConfigurationEvent(newConfigurationEndedWithXMLParsingErrorsEvent(this));
         }
-        context.fireConfigurationEvent(newConfigurationEndedEvent(this));
+
 
     }
 
@@ -204,8 +215,13 @@ public abstract class GenericXMLConfigurator extends ContextAwareBase {
         addModelHandlerAssociations(defaultProcessor);
 
         // disallow simultaneous configurations of the same context
-        synchronized (context.getConfigurationLock()) {
+        ReentrantLock configurationLock   = context.getConfigurationLock();
+
+        try {
+            configurationLock.lock();
             defaultProcessor.process(model);
+        } finally {
+            configurationLock.unlock();
         }
     }
 

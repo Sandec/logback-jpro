@@ -16,6 +16,7 @@ package ch.qos.logback.core.joran.spi;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import ch.qos.logback.core.Context;
@@ -38,10 +39,12 @@ public class SimpleRuleStore extends ContextAwareBase implements RuleStore {
     HashMap<ElementSelector, Supplier<Action>> rules = new HashMap<>();
 
     List<String> transparentPathParts = new ArrayList<>(2);
+    Map<String, String> pathPartsMapForRenaming = new HashMap<>(2);
 
     public SimpleRuleStore(Context context) {
         setContext(context);
     }
+
 
     public void addTransparentPathPart(String pathPart) {
         if (pathPart == null)
@@ -57,6 +60,18 @@ public class SimpleRuleStore extends ContextAwareBase implements RuleStore {
 
         transparentPathParts.add(pathPart);
 
+    }
+
+    /**
+     * Rename path parts.
+     *
+     * @param originalName the name before renaming
+     * @param modifiedName the after renaming
+     * @since 1.5.5
+     */
+    @Override
+    public void addPathPathMapping(String originalName, String modifiedName) {
+        pathPartsMapForRenaming.put(originalName, modifiedName);
     }
 
     /**
@@ -100,11 +115,27 @@ public class SimpleRuleStore extends ContextAwareBase implements RuleStore {
         Supplier<Action> actionSupplier = internalMatchAction(elementPath);
         if(actionSupplier != null) {
             return actionSupplier;
-        } else {
-            ElementPath cleanedElementPath = removeTransparentPathParts(elementPath);
-            return internalMatchAction(cleanedElementPath);
         }
+
+        return matchActionsWithoutTransparentPartsAndRenamedParts(elementPath);
     }
+
+    private Supplier<Action> matchActionsWithoutTransparentPartsAndRenamedParts(ElementPath elementPath) {
+        ElementPath cleanedElementPath = removeTransparentPathParts(elementPath);
+        ElementPath renamePathParts = renamePathParts(cleanedElementPath);
+
+        return internalMatchAction(renamePathParts);
+    }
+
+//    private Supplier<Action> matchActionsWithoutTransparentParts(ElementPath elementPath) {
+//        ElementPath cleanedElementPath = removeTransparentPathParts(elementPath);
+//        return internalMatchAction(cleanedElementPath);
+//    }
+//
+//    private Supplier<Action> matchActionsWithRenamedParts(ElementPath elementPath) {
+//        ElementPath renamedElementPath = renamePathParts(elementPath);
+//        return internalMatchAction(renamedElementPath);
+//    }
 
     private Supplier<Action> internalMatchAction(ElementPath elementPath) {
         Supplier<Action> actionSupplier;
@@ -135,6 +166,20 @@ public class SimpleRuleStore extends ContextAwareBase implements RuleStore {
         return new ElementPath(preservedElementList);
 
     }
+
+
+    ElementPath renamePathParts(ElementPath originalElementPath) {
+
+        List<String> result = new ArrayList<>(originalElementPath.partList.size());
+
+        for (String part : originalElementPath.partList) {
+            String modifiedName = pathPartsMapForRenaming.getOrDefault(part, part);
+            result.add(modifiedName);
+        }
+
+        return new ElementPath(result);
+    }
+
 
     Supplier<Action> fullPathMatch(ElementPath elementPath) {
         for (ElementSelector selector : rules.keySet()) {

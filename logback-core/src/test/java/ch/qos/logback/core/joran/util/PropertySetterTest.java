@@ -17,6 +17,7 @@ import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.nio.charset.UnsupportedCharsetException;
 
+import ch.qos.logback.core.util.FileSize;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,8 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class PropertySetterTest {
-
-    DefaultNestedComponentRegistry defaultComponentRegistry = new DefaultNestedComponentRegistry();
 
     Context context = new ContextBase();
     StatusChecker checker = new StatusChecker(context);
@@ -123,19 +122,7 @@ public class PropertySetterTest {
         assertEquals(door, house.getDoor());
     }
 
-    @Test
-    public void testgetClassNameViaImplicitRules() {
-        Class<?> compClass = setter.getClassNameViaImplicitRules("door", AggregationType.AS_COMPLEX_PROPERTY,
-                defaultComponentRegistry);
-        assertEquals(Door.class, compClass);
-    }
 
-    @Test
-    public void testgetComplexPropertyColleClassNameViaImplicitRules() {
-        Class<?> compClass = setter.getClassNameViaImplicitRules("window",
-                AggregationType.AS_COMPLEX_PROPERTY_COLLECTION, defaultComponentRegistry);
-        assertEquals(Window.class, compClass);
-    }
 
     @Test
     public void testPropertyCollection() {
@@ -148,6 +135,16 @@ public class PropertySetterTest {
     }
 
     @Test
+    public void addValueOfTest() {
+        setter.addBasicProperty("fileSize", "1GB");
+        setter.addBasicProperty("fileSize", "10KB");
+
+        assertEquals(2, house.fileSizes.size());
+        assertEquals(FileSize.valueOf("1GB"), house.fileSizes.get(0));
+        assertEquals(FileSize.valueOf("10KB"), house.fileSizes.get(1));
+    }
+
+        @Test
     public void testComplexCollection() {
         Window w1 = new Window();
         w1.handle = 10;
@@ -193,30 +190,7 @@ public class PropertySetterTest {
         assertEquals(HouseColor.BLUE, house.getHouseColor());
     }
 
-    @Test
-    public void testDefaultClassAnnonation() {
-        Method relevantMethod = setter.getRelevantMethod("SwimmingPool", AggregationType.AS_COMPLEX_PROPERTY);
-        assertNotNull(relevantMethod);
-        Class<?> spClass = setter.getDefaultClassNameByAnnonation("SwimmingPool", relevantMethod);
-        assertEquals(SwimmingPoolImpl.class, spClass);
 
-        Class<?> classViaImplicitRules = setter.getClassNameViaImplicitRules("SwimmingPool",
-                AggregationType.AS_COMPLEX_PROPERTY, defaultComponentRegistry);
-        assertEquals(SwimmingPoolImpl.class, classViaImplicitRules);
-    }
-
-    @Test
-    public void testDefaultClassAnnotationForLists() {
-        Method relevantMethod = setter.getRelevantMethod("LargeSwimmingPool",
-                AggregationType.AS_COMPLEX_PROPERTY_COLLECTION);
-        assertNotNull(relevantMethod);
-        Class<?> spClass = setter.getDefaultClassNameByAnnonation("LargeSwimmingPool", relevantMethod);
-        assertEquals(LargeSwimmingPoolImpl.class, spClass);
-
-        Class<?> classViaImplicitRules = setter.getClassNameViaImplicitRules("LargeSwimmingPool",
-                AggregationType.AS_COMPLEX_PROPERTY_COLLECTION, defaultComponentRegistry);
-        assertEquals(LargeSwimmingPoolImpl.class, classViaImplicitRules);
-    }
 
     @Test
     public void charset() {

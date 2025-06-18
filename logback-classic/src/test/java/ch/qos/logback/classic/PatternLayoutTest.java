@@ -28,6 +28,7 @@ import ch.qos.logback.core.spi.ScanException;
 import ch.qos.logback.core.testUtil.RandomUtil;
 import ch.qos.logback.core.testUtil.StringListAppender;
 import ch.qos.logback.core.util.OptionHelper;
+import ch.qos.logback.core.util.StatusPrinter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
@@ -229,6 +230,31 @@ public class PatternLayoutTest extends AbstractPatternLayoutBaseTest<ILoggingEve
         configure(ClassicTestConstants.JORAN_INPUT_PREFIX + "conversionRule/patternLayout0.xml");
         root.getAppender("LIST");
         String msg = "Simon says";
+        logger.debug(msg);
+        StringListAppender<ILoggingEvent> sla = (StringListAppender<ILoggingEvent>) root.getAppender("LIST");
+        assertNotNull(sla);
+        assertEquals(1, sla.strList.size());
+        assertEquals(SampleConverter.SAMPLE_STR + " - " + msg, sla.strList.get(0));
+    }
+
+    @Test
+    public void testConversionRuleAtEnd() throws JoranException {
+        configure(ClassicTestConstants.JORAN_INPUT_PREFIX + "conversionRule/conversionRuleAtEnd.xml");
+        root.getAppender("LIST");
+        String msg = "testConversionRuleAtEnd";
+        logger.debug(msg);
+        StringListAppender<ILoggingEvent> sla = (StringListAppender<ILoggingEvent>) root.getAppender("LIST");
+        assertNotNull(sla);
+        assertEquals(1, sla.strList.size());
+        assertEquals(SampleConverter.SAMPLE_STR + " - " + msg, sla.strList.get(0));
+    }
+
+    @Test
+    public void testConversionRuleInIncluded() throws JoranException {
+        configure(ClassicTestConstants.JORAN_INPUT_PREFIX + "conversionRule/conversionRuleTop0.xml");
+        StatusPrinter.print(loggerContext);
+        root.getAppender("LIST");
+        String msg = "testConversionRuleInIncluded";
         logger.debug(msg);
         StringListAppender<ILoggingEvent> sla = (StringListAppender<ILoggingEvent>) root.getAppender("LIST");
         assertNotNull(sla);

@@ -32,7 +32,9 @@ public class ConfigurationEvent {
         CHANGE_DETECTOR_RUNNING,
         CHANGE_DETECTED,
         CONFIGURATION_STARTED,
-        CONFIGURATION_ENDED;
+        PARTIAL_CONFIGURATION_ENDED_SUCCESSFULLY,
+        CONFIGURATION_ENDED_SUCCESSFULLY,
+        CONFIGURATION_ENDED_WITH_XML_PARSING_ERRORS;
     }
     final EventType eventType;
     final Object data;
@@ -61,10 +63,17 @@ public class ConfigurationEvent {
     static public ConfigurationEvent newConfigurationStartedEvent(Object data) {
         return new ConfigurationEvent(EventType.CONFIGURATION_STARTED, data);
     }
-    static public ConfigurationEvent newConfigurationEndedEvent(Object data) {
-        return new ConfigurationEvent(EventType.CONFIGURATION_ENDED, data);
+    static public ConfigurationEvent newPartialConfigurationEndedSuccessfullyEvent(Object data) {
+        return new ConfigurationEvent(EventType.PARTIAL_CONFIGURATION_ENDED_SUCCESSFULLY, data);
     }
 
+
+    static public ConfigurationEvent newConfigurationEndedSuccessfullyEvent(Object data) {
+        return new ConfigurationEvent(EventType.CONFIGURATION_ENDED_SUCCESSFULLY, data);
+    }
+    static public ConfigurationEvent newConfigurationEndedWithXMLParsingErrorsEvent(Object data) {
+        return new ConfigurationEvent(EventType.CONFIGURATION_ENDED_WITH_XML_PARSING_ERRORS, data);
+    }
     public EventType getEventType() {
         return eventType;
     }

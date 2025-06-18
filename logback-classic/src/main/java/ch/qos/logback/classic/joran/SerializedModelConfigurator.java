@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static ch.qos.logback.core.CoreConstants.MODEL_CONFIG_FILE_EXTENSION;
 
@@ -58,6 +59,7 @@ public class SerializedModelConfigurator extends ContextAwareBase implements Con
 
         URL url = performMultiStepModelFileSearch(true);
         if (url != null) {
+            addWarn("Replaced by logback-tyler, SerializedModelConfigurator has been deprecated and will be removed on 2025-07-01.");
             configureByResource(url);
             return ExecutionStatus.DO_NOT_INVOKE_NEXT_IF_ANY;
         } else {
@@ -81,8 +83,12 @@ public class SerializedModelConfigurator extends ContextAwareBase implements Con
             mc2mhl.link(defaultProcessor);
 
             // disallow simultaneous configurations of the same context
-            synchronized (context.getConfigurationLock()) {
+            ReentrantLock configurationLock   = context.getConfigurationLock();
+            try {
+                configurationLock.lock();
                 defaultProcessor.process(model);
+            } finally {
+                configurationLock.unlock();
             }
         } else {
             throw new LogbackException(

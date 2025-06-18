@@ -13,13 +13,15 @@
  */
 package ch.qos.logback.core.joran.util;
 
+import ch.qos.logback.core.CoreConstants;
+import ch.qos.logback.core.spi.ContextAware;
+
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.charset.Charset;
 import java.nio.charset.UnsupportedCharsetException;
 
-import ch.qos.logback.core.CoreConstants;
-import ch.qos.logback.core.spi.ContextAware;
+import static ch.qos.logback.core.CoreConstants.NULL_STR;
 
 /**
  * Utility class which can convert string into objects.
@@ -27,7 +29,7 @@ import ch.qos.logback.core.spi.ContextAware;
  * @author Ceki G&uuml;lc&uuml;
  *
  */
-public class StringToObjectConverter {
+public class StringToObjectConverter  {
 
     private static final Class<?>[] STRING_CLASS_PARAMETER = new Class[] { String.class };
 
@@ -51,7 +53,7 @@ public class StringToObjectConverter {
      * Convert <code>val</code> a String parameter to an object of a given type.
      */
     @SuppressWarnings("unchecked")
-    public static Object convertArg(ContextAware ca, String val, Class<?> type) {
+    static public Object convertArg(ContextAware ca, String val, Class<?> type) {
         if (val == null) {
             return null;
         }
@@ -88,6 +90,12 @@ public class StringToObjectConverter {
     }
 
     static private Charset convertToCharset(ContextAware ca, String val) {
+
+        if (NULL_STR.equalsIgnoreCase(val)) {
+            ca.addInfo("Converting the string \"null\" as Charset.defaultCharset()");
+            return Charset.defaultCharset();
+        }
+
         try {
             return Charset.forName(val);
         } catch (UnsupportedCharsetException e) {
@@ -97,7 +105,7 @@ public class StringToObjectConverter {
     }
 
     // returned value may be null and in most cases it is null.
-    public static Method getValueOfMethod(Class<?> type) {
+    static public Method getValueOfMethod(Class<?> type) {
         try {
             return type.getMethod(CoreConstants.VALUE_OF, STRING_CLASS_PARAMETER);
         } catch (NoSuchMethodException e) {
@@ -107,7 +115,7 @@ public class StringToObjectConverter {
         }
     }
 
-    static private boolean followsTheValueOfConvention(Class<?> parameterClass) {
+    static public boolean followsTheValueOfConvention(Class<?> parameterClass) {
         Method valueOfMethod = getValueOfMethod(parameterClass);
         if (valueOfMethod == null)
             return false;

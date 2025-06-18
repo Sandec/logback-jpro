@@ -15,6 +15,7 @@ package ch.qos.logback.core.html;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import ch.qos.logback.core.Context;
 import ch.qos.logback.core.CoreConstants;
@@ -22,6 +23,7 @@ import static ch.qos.logback.core.CoreConstants.LINE_SEPARATOR;
 import ch.qos.logback.core.LayoutBase;
 import ch.qos.logback.core.pattern.Converter;
 import ch.qos.logback.core.pattern.ConverterUtil;
+import ch.qos.logback.core.pattern.DynamicConverter;
 import ch.qos.logback.core.pattern.parser.Node;
 import ch.qos.logback.core.pattern.parser.Parser;
 import ch.qos.logback.core.spi.ScanException;
@@ -95,27 +97,27 @@ public abstract class HTMLLayoutBase<E> extends LayoutBase<E> {
         }
     }
 
-    protected abstract Map<String, String> getDefaultConverterMap();
+    protected abstract Map<String, Supplier<DynamicConverter>> getDefaultConverterSupplierMap();
 
     /**
      * Returns a map where the default converter map is merged with the map
      * contained in the context.
      */
-    public Map<String, String> getEffectiveConverterMap() {
-        Map<String, String> effectiveMap = new HashMap<String, String>();
+    public Map<String, Supplier<DynamicConverter>> getEffectiveConverterMap() {
+        Map<String, Supplier<DynamicConverter>> effectiveMap = new HashMap<>();
 
         // add the least specific map fist
-        Map<String, String> defaultMap = getDefaultConverterMap();
-        if (defaultMap != null) {
-            effectiveMap.putAll(defaultMap);
+        Map<String, Supplier<DynamicConverter>> defaultSupplierMap = getDefaultConverterSupplierMap();
+        if (defaultSupplierMap != null) {
+            effectiveMap.putAll(defaultSupplierMap);
         }
 
         // contextMap is more specific than the default map
         Context context = getContext();
         if (context != null) {
             @SuppressWarnings("unchecked")
-            Map<String, String> contextMap = (Map<String, String>) context
-                    .getObject(CoreConstants.PATTERN_RULE_REGISTRY);
+            Map<String, Supplier<DynamicConverter>> contextMap = (Map<String, Supplier<DynamicConverter>>) context
+                    .getObject(CoreConstants.PATTERN_RULE_REGISTRY_FOR_SUPPLIERS);
             if (contextMap != null) {
                 effectiveMap.putAll(contextMap);
             }

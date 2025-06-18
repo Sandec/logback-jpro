@@ -13,15 +13,7 @@
  */
 package ch.qos.logback.classic.joran;
 
-import ch.qos.logback.classic.joran.action.ConfigurationAction;
-import ch.qos.logback.classic.joran.action.ConsolePluginAction;
-import ch.qos.logback.classic.joran.action.ContextNameAction;
-import ch.qos.logback.classic.joran.action.InsertFromJNDIAction;
-import ch.qos.logback.classic.joran.action.LevelAction;
-import ch.qos.logback.classic.joran.action.LoggerAction;
-import ch.qos.logback.classic.joran.action.LoggerContextListenerAction;
-import ch.qos.logback.classic.joran.action.ReceiverAction;
-import ch.qos.logback.classic.joran.action.RootLoggerAction;
+import ch.qos.logback.classic.joran.action.*;
 import ch.qos.logback.classic.joran.sanity.IfNestedWithinSecondPhaseElementSC;
 import ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull;
 import ch.qos.logback.classic.model.processor.LogbackClassicDefaultNestedComponentRules;
@@ -41,6 +33,8 @@ import ch.qos.logback.core.model.processor.DefaultProcessor;
  * @author Ceki G&uuml;lc&uuml;
  */
 public class JoranConfigurator extends JoranConfiguratorBase<ILoggingEvent> {
+
+
 
     @Override
     public void addElementSelectorAndActionAssociations(RuleStore rs) {
@@ -62,10 +56,12 @@ public class JoranConfigurator extends JoranConfiguratorBase<ILoggingEvent> {
         rs.addRule(new ElementSelector("configuration/root/appender-ref"), () -> new AppenderRefAction());
 
         rs.addRule(new ElementSelector("configuration/include"), () -> new IncludeAction());
+        rs.addRule(new ElementSelector("configuration/propertiesConfigurator"), () -> new PropertiesConfiguratorAction());
 
         rs.addRule(new ElementSelector("configuration/consolePlugin"), () -> new ConsolePluginAction());
 
         rs.addRule(new ElementSelector("configuration/receiver"), () -> new ReceiverAction());
+
 
     }
 
@@ -79,6 +75,17 @@ public class JoranConfigurator extends JoranConfiguratorBase<ILoggingEvent> {
     @Override
     protected void addDefaultNestedComponentRegistryRules(DefaultNestedComponentRegistry registry) {
         LogbackClassicDefaultNestedComponentRules.addDefaultNestedComponentRegistryRules(registry);
+    }
+
+    private JoranConfigurator makeAnotherInstance() {
+        JoranConfigurator jc = new JoranConfigurator();
+        jc.setContext(context);
+        return jc;
+    }
+
+    public void buildModelInterpretationContext() {
+        super.buildModelInterpretationContext();
+        this.modelInterpretationContext.setConfiguratorSupplier(  () -> this.makeAnotherInstance() );
     }
 
     @Override

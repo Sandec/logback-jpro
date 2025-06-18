@@ -20,26 +20,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Stack;
+import java.util.function.Supplier;
 
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.Context;
+import ch.qos.logback.core.joran.GenericXMLConfigurator;
+import ch.qos.logback.core.joran.JoranConfiguratorBase;
 import ch.qos.logback.core.joran.JoranConstants;
 import ch.qos.logback.core.joran.spi.DefaultNestedComponentRegistry;
 import ch.qos.logback.core.joran.util.beans.BeanDescriptionCache;
 import ch.qos.logback.core.model.Model;
+import ch.qos.logback.core.model.util.VariableSubstitutionsHelper;
 import ch.qos.logback.core.spi.AppenderAttachable;
 import ch.qos.logback.core.spi.ContextAwareBase;
+import ch.qos.logback.core.spi.ContextAwarePropertyContainer;
 import ch.qos.logback.core.spi.PropertyContainer;
-import ch.qos.logback.core.spi.ScanException;
-import ch.qos.logback.core.util.OptionHelper;
 
-public class ModelInterpretationContext extends ContextAwareBase implements PropertyContainer {
+public class ModelInterpretationContext extends ContextAwareBase implements ContextAwarePropertyContainer {
 
     Stack<Object> objectStack;
     Stack<Model> modelStack;
 
+    /**
+     * A supplier of JoranConfigurator instances.
+     *
+     * May be null.
+     *
+     * @since 1.5.5
+     */
+    Supplier<? extends GenericXMLConfigurator> configuratorSupplier;
+
+
     Map<String, Object> objectMap;
-    protected Map<String, String> propertiesMap;
+    protected VariableSubstitutionsHelper variableSubstitutionsHelper;
     protected Map<String, String> importMap;
 
     final private BeanDescriptionCache beanDescriptionCache;
@@ -62,14 +75,14 @@ public class ModelInterpretationContext extends ContextAwareBase implements Prop
         this.modelStack = new Stack<>();
         this.beanDescriptionCache = new BeanDescriptionCache(context);
         objectMap = new HashMap<>(5);
-        propertiesMap = new HashMap<>(5);
+        variableSubstitutionsHelper = new VariableSubstitutionsHelper(context);
         importMap = new HashMap<>(5);
     }
 
     public ModelInterpretationContext(ModelInterpretationContext otherMic) {
         this(otherMic.context, otherMic.configuratorHint);
         importMap = new HashMap<>(otherMic.importMap);
-        propertiesMap = new HashMap<>(otherMic.propertiesMap);
+        variableSubstitutionsHelper =  new VariableSubstitutionsHelper(context, otherMic.getCopyOfPropertyMap());
         defaultNestedComponentRegistry.duplicate(otherMic.getDefaultNestedComponentRegistry());
         createAppenderBags();
     } 
@@ -149,43 +162,15 @@ public class ModelInterpretationContext extends ContextAwareBase implements Prop
         return beanDescriptionCache;
     }
 
-    public String subst(String ref) {
-        if (ref == null) {
-            return null;
-        }
+    public String subst(String ref)  {
 
-        try {
-            return OptionHelper.substVars(ref, this, context);
-        } catch (ScanException | IllegalArgumentException e) {
-            addError("Problem while parsing [" + ref + "]", e);
-            return ref;
+        String substituted = variableSubstitutionsHelper.subst(ref);
+        if(ref != null && !ref.equals(substituted)) {
+            addInfo("value \""+substituted+"\" substituted for \""+ref+"\"");
         }
-
+        return substituted;
     }
 
-    /**
-     * Add a property to the properties of this execution context. If the property
-     * exists already, it is overwritten.
-     */
-    public void addSubstitutionProperty(String key, String value) {
-        if (key == null || value == null) {
-            return;
-        }
-        // values with leading or trailing spaces are bad. We remove them now.
-        value = value.trim();
-        propertiesMap.put(key, value);
-    }
-
-    public void addSubstitutionProperties(Properties props) {
-        if (props == null) {
-            return;
-        }
-        for (Object keyObject : props.keySet()) {
-            String key = (String) keyObject;
-            String val = props.getProperty(key);
-            addSubstitutionProperty(key, val);
-        }
-    }
 
     public DefaultNestedComponentRegistry getDefaultNestedComponentRegistry() {
         return defaultNestedComponentRegistry;
@@ -237,24 +222,28 @@ public class ModelInterpretationContext extends ContextAwareBase implements Prop
     // ========================================== object map
 
     /**
+     * Add a property to the properties of this execution context. If the property
+     * exists already, it is overwritten.
+     */
+    @Override
+    public void addSubstitutionProperty(String key, String value) {
+        variableSubstitutionsHelper.addSubstitutionProperty(key, value);
+    }
+
+    /**
      * If a key is found in propertiesMap then return it. Otherwise, delegate to the
      * context.
      */
     public String getProperty(String key) {
-        String v = propertiesMap.get(key);
-        if (v != null) {
-            return v;
-        } else {
-            return context.getProperty(key);
-        }
+      return  variableSubstitutionsHelper.getProperty(key);
     }
 
     @Override
     public Map<String, String> getCopyOfPropertyMap() {
-        return new HashMap<String, String>(propertiesMap);
+        return variableSubstitutionsHelper.getCopyOfPropertyMap();
     }
 
-    // imports
+    // imports ===================================================================
 
     /**
      * Add an import to the importMao
@@ -295,4 +284,21 @@ public class ModelInterpretationContext extends ContextAwareBase implements Prop
             return result;
     }
 
+    /**
+     * Returns a supplier of {@link GenericXMLConfigurator} instance. The returned value may be null.
+     *
+     * @return a supplier of {@link GenericXMLConfigurator} instance, may be null
+     */
+    @Override
+    public Supplier<? extends GenericXMLConfigurator> getConfiguratorSupplier() {
+        return this.configuratorSupplier;
+    }
+
+    /**
+     *
+     * @param configuratorSupplier
+     */
+    public void setConfiguratorSupplier(Supplier<? extends GenericXMLConfigurator> configuratorSupplier) {
+        this.configuratorSupplier = configuratorSupplier;
+    }
 }

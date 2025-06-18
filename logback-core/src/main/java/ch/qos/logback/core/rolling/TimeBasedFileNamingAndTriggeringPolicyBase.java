@@ -17,7 +17,6 @@ import static ch.qos.logback.core.CoreConstants.CODES_URL;
 
 import java.io.File;
 import java.time.Instant;
-import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicLong;
@@ -28,6 +27,16 @@ import ch.qos.logback.core.rolling.helper.DateTokenConverter;
 import ch.qos.logback.core.rolling.helper.RollingCalendar;
 import ch.qos.logback.core.spi.ContextAwareBase;
 
+/**
+ * Base implementation of {@link TimeBasedFileNamingAndTriggeringPolicy}.
+ *
+ * <p>See also derived classes {@link DefaultTimeBasedFileNamingAndTriggeringPolicy} and
+ * {@link SizeAndTimeBasedFileNamingAndTriggeringPolicy}.
+ *
+ * </p>
+ *
+ * @param <E>
+ */
 abstract public class TimeBasedFileNamingAndTriggeringPolicyBase<E> extends ContextAwareBase
         implements TimeBasedFileNamingAndTriggeringPolicy<E> {
 

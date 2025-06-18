@@ -13,21 +13,15 @@
  */
 package ch.qos.logback.core.rolling.helper;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.zip.GZIPOutputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import ch.qos.logback.core.rolling.RolloverFailure;
 import ch.qos.logback.core.spi.ContextAwareBase;
-import ch.qos.logback.core.status.ErrorStatus;
-import ch.qos.logback.core.status.WarnStatus;
-import ch.qos.logback.core.util.FileUtil;
+import ch.qos.logback.core.util.DynamicClassLoadingException;
+import ch.qos.logback.core.util.IncompatibleClassException;
+
+import static ch.qos.logback.core.util.OptionHelper.instantiateByClassName;
 
 /**
  * The <code>Compression</code> class implements ZIP and GZ file
@@ -36,6 +30,9 @@ import ch.qos.logback.core.util.FileUtil;
  * @author Ceki G&uuml;lc&uuml;
  */
 public class Compressor extends ContextAwareBase {
+
+    public static final String COULD_NOT_OBTAIN_COMPRESSION_STRATEGY_MESSAGE = "Could not obtain compression strategy";
+    public static final String XZ_COMPRESSION_STRATEGY_CLASS_NAME = "ch.qos.logback.core.rolling.helper.XZCompressionStrategy";
 
     final CompressionMode compressionMode;
 
@@ -46,151 +43,46 @@ public class Compressor extends ContextAwareBase {
     }
 
     /**
-     * @param nameOfFile2Compress
-     * @param nameOfCompressedFile
+     * @param originalFileName
+     * @param compressedFileName
      * @param innerEntryName       The name of the file within the zip file. Use for
      *                             ZIP compression.
      */
-    public void compress(String nameOfFile2Compress, String nameOfCompressedFile, String innerEntryName) {
+    public void compress(String originalFileName, String compressedFileName, String innerEntryName) {
+        CompressionStrategy compressionStrategy = makeCompressionStrategy(compressionMode);
+        if (compressionStrategy == null) {
+            addWarn(COULD_NOT_OBTAIN_COMPRESSION_STRATEGY_MESSAGE);
+            return;
+        }
+        compressionStrategy.setContext(getContext());
+        compressionStrategy.compress(originalFileName, compressedFileName, innerEntryName);
+    }
+
+    CompressionStrategy makeCompressionStrategy(CompressionMode compressionMode) {
         switch (compressionMode) {
         case GZ:
-            gzCompress(nameOfFile2Compress, nameOfCompressedFile);
-            break;
+            return new GZCompressionStrategy();
         case ZIP:
-            zipCompress(nameOfFile2Compress, nameOfCompressedFile, innerEntryName);
-            break;
+            return new ZipCompressionStrategy();
+        case XZ:
+            return dynamicInstantiation(XZ_COMPRESSION_STRATEGY_CLASS_NAME);
         case NONE:
             throw new UnsupportedOperationException("compress method called in NONE compression mode");
+        default:
+            return null;
         }
     }
 
-    private void zipCompress(String nameOfFile2zip, String nameOfZippedFile, String innerEntryName) {
-        File file2zip = new File(nameOfFile2zip);
-
-        if (!file2zip.exists()) {
-            addStatus(new WarnStatus("The file to compress named [" + nameOfFile2zip + "] does not exist.", this));
-
-            return;
-        }
-
-        if (innerEntryName == null) {
-            addStatus(new WarnStatus("The innerEntryName parameter cannot be null", this));
-            return;
-        }
-
-        if (!nameOfZippedFile.endsWith(".zip")) {
-            nameOfZippedFile = nameOfZippedFile + ".zip";
-        }
-
-        File zippedFile = new File(nameOfZippedFile);
-
-        if (zippedFile.exists()) {
-            addStatus(
-                    new WarnStatus("The target compressed file named [" + nameOfZippedFile + "] exist already.", this));
-
-            return;
-        }
-
-        addInfo("ZIP compressing [" + file2zip + "] as [" + zippedFile + "]");
-        createMissingTargetDirsIfNecessary(zippedFile);
-
-        try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(nameOfFile2zip));
-                ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(nameOfZippedFile))) {
-
-            ZipEntry zipEntry = computeZipEntry(innerEntryName);
-            zos.putNextEntry(zipEntry);
-
-            byte[] inbuf = new byte[BUFFER_SIZE];
-            int n;
-
-            while ((n = bis.read(inbuf)) != -1) {
-                zos.write(inbuf, 0, n);
-            }
-
-            addInfo("Done ZIP compressing [" + file2zip + "] as [" + zippedFile + "]");
-        } catch (Exception e) {
-            addStatus(new ErrorStatus(
-                    "Error occurred while compressing [" + nameOfFile2zip + "] into [" + nameOfZippedFile + "].", this,
-                    e));
-        }
-        if (!file2zip.delete()) {
-            addStatus(new WarnStatus("Could not delete [" + nameOfFile2zip + "].", this));
+    private CompressionStrategy dynamicInstantiation(String className) {
+        try {
+            return (CompressionStrategy) instantiateByClassName(className, CompressionStrategy.class, getContext());
+        } catch (IncompatibleClassException | DynamicClassLoadingException e) {
+            addError("Could not instantiate " + className, e);
+            return null;
         }
     }
 
-    // http://jira.qos.ch/browse/LBCORE-98
-    // The name of the compressed file as nested within the zip archive
-    //
-    // Case 1: RawFile = null, Pattern = foo-%d.zip
-    // nestedFilename = foo-${current-date}
-    //
-    // Case 2: RawFile = hello.txt, Pattern = = foo-%d.zip
-    // nestedFilename = foo-${current-date}
-    //
-    // in both cases, the strategy consisting of removing the compression
-    // suffix of zip file works reasonably well. The alternative strategy
-    // whereby the nested file name was based on the value of the raw file name
-    // (applicable to case 2 only) has the disadvantage of the nested files
-    // all having the same name, which could make it harder for the user
-    // to unzip the file without collisions
-    ZipEntry computeZipEntry(File zippedFile) {
-        return computeZipEntry(zippedFile.getName());
-    }
-
-    ZipEntry computeZipEntry(String filename) {
-        String nameOfFileNestedWithinArchive = computeFileNameStrWithoutCompSuffix(filename, compressionMode);
-        return new ZipEntry(nameOfFileNestedWithinArchive);
-    }
-
-    private void gzCompress(String nameOfFile2gz, String nameOfgzedFile) {
-        File file2gz = new File(nameOfFile2gz);
-
-        if (!file2gz.exists()) {
-            addStatus(new WarnStatus("The file to compress named [" + nameOfFile2gz + "] does not exist.", this));
-
-            return;
-        }
-
-        if (!nameOfgzedFile.endsWith(".gz")) {
-            nameOfgzedFile = nameOfgzedFile + ".gz";
-        }
-
-        File gzedFile = new File(nameOfgzedFile);
-
-        if (gzedFile.exists()) {
-            addWarn("The target compressed file named [" + nameOfgzedFile
-                    + "] exist already. Aborting file compression.");
-            return;
-        }
-
-        addInfo("GZ compressing [" + file2gz + "] as [" + gzedFile + "]");
-        createMissingTargetDirsIfNecessary(gzedFile);
-
-        try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(nameOfFile2gz));
-                GZIPOutputStream gzos = new GZIPOutputStream(new FileOutputStream(nameOfgzedFile))) {
-
-            byte[] inbuf = new byte[BUFFER_SIZE];
-            int n;
-
-            while ((n = bis.read(inbuf)) != -1) {
-                gzos.write(inbuf, 0, n);
-            }
-
-            addInfo("Done GZ compressing [" + file2gz + "] as [" + gzedFile + "]");
-        } catch (Exception e) {
-            addStatus(new ErrorStatus(
-                    "Error occurred while compressing [" + nameOfFile2gz + "] into [" + nameOfgzedFile + "].", this,
-                    e));
-        }
-
-        if (!file2gz.delete()) {
-            addStatus(new WarnStatus("Could not delete [" + nameOfFile2gz + "].", this));
-        }
-
-    }
-
-    static public String computeFileNameStrWithoutCompSuffix(String fileNamePatternStr,
-            CompressionMode compressionMode) {
+    static public String computeFileNameStrWithoutCompSuffix(String fileNamePatternStr, CompressionMode compressionMode) {
         int len = fileNamePatternStr.length();
         switch (compressionMode) {
         case GZ:
@@ -203,17 +95,15 @@ public class Compressor extends ContextAwareBase {
                 return fileNamePatternStr.substring(0, len - 4);
             else
                 return fileNamePatternStr;
+        case XZ:
+            if (fileNamePatternStr.endsWith(".xz"))
+                return fileNamePatternStr.substring(0, len - 3);
+            else
+                return fileNamePatternStr;
         case NONE:
             return fileNamePatternStr;
         }
         throw new IllegalStateException("Execution should not reach this point");
-    }
-
-    void createMissingTargetDirsIfNecessary(File file) {
-        boolean result = FileUtil.createMissingParentDirectories(file);
-        if (!result) {
-            addError("Failed to create parent directories for [" + file.getAbsolutePath() + "]");
-        }
     }
 
     @Override
@@ -221,10 +111,8 @@ public class Compressor extends ContextAwareBase {
         return this.getClass().getName();
     }
 
-    public Future<?> asyncCompress(String nameOfFile2Compress, String nameOfCompressedFile, String innerEntryName)
-            throws RolloverFailure {
-        CompressionRunnable runnable = new CompressionRunnable(nameOfFile2Compress, nameOfCompressedFile,
-                innerEntryName);
+    public Future<?> asyncCompress(String nameOfFile2Compress, String nameOfCompressedFile, String innerEntryName) throws RolloverFailure {
+        CompressionRunnable runnable = new CompressionRunnable(nameOfFile2Compress, nameOfCompressedFile, innerEntryName);
         ExecutorService executorService = context.getExecutorService();
         Future<?> future = executorService.submit(runnable);
         return future;

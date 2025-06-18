@@ -48,7 +48,7 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
     int callCount = 0;
 
     public Future<?> cleanAsynchronously(Instant now) {
-        ArhiveRemoverRunnable runnable = new ArhiveRemoverRunnable(now);
+        ArchiveRemoverRunnable runnable = new ArchiveRemoverRunnable(now);
         ExecutorService alternateExecutorService = context.getAlternateExecutorService();
         Future<?> future = alternateExecutorService.submit(runnable);
         return future;
@@ -68,7 +68,7 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
         lastHeartBeat = nowInMillis;
         if (periodsElapsed > 1) {
             addInfo("Multiple periods, i.e. " + periodsElapsed
-                    + " periods, seem to have elapsed. This is expected at application start.");
+                    + " periods, seem to have elapsed. This can happen at application start.");
         }
         for (int i = 0; i < periodsElapsed; i++) {
             int offset = getPeriodOffsetForDeletionTarget() - i;
@@ -106,7 +106,7 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
     }
 
     private boolean checkAndDeleteFile(File f) {
-        addInfo("deleting " + f);
+        addInfo("deleting historically stale " + f);
         if (f == null) {
             addWarn("Cannot delete empty file");
             return false;
@@ -114,7 +114,7 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
             addWarn("Cannot delete non existent file");
             return false;
         }
-       
+
         boolean result = f.delete();
         if (!result) {
             addWarn("Failed to delete file " + f.toString());
@@ -125,23 +125,38 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
     void capTotalSize(Instant now) {
         long totalSize = 0;
         long totalRemoved = 0;
+        int successfulDeletions = 0;
+        int failedDeletions = 0;
+
         for (int offset = 0; offset < maxHistory; offset++) {
             Instant instant = rc.getEndOfNextNthPeriod(now, -offset);
             File[] matchingFileArray = getFilesInPeriod(instant);
             descendingSort(matchingFileArray, instant);
             for (File f : matchingFileArray) {
                 long size = f.length();
-                if (totalSize + size > totalSizeCap) {
-                    addInfo("Deleting [" + f + "]" + " of size " + new FileSize(size));
-                    // assume that deletion attempt will succeed.
-                    totalRemoved += size;
-
-                    checkAndDeleteFile(f);
-                }
                 totalSize += size;
+                if (totalSize > totalSizeCap) {
+                    addInfo("Deleting [" + f + "]" + " of size " + new FileSize(size) + " on account of totalSizeCap " + totalSizeCap);
+
+                    boolean success = checkAndDeleteFile(f);
+
+                    if (success) {
+                        successfulDeletions++;
+                        totalRemoved += size;
+                    } else {
+                        failedDeletions++;
+                    }
+                }
             }
         }
-        addInfo("Removed  " + new FileSize(totalRemoved) + " of files");
+        if ((successfulDeletions + failedDeletions) == 0) {
+            addInfo("No removal attempts were made on account of totalSizeCap="+totalSizeCap);
+        } else {
+            addInfo("Removed  " + new FileSize(totalRemoved) + " of files in " + successfulDeletions + " files on account of totalSizeCap=" + totalSizeCap);
+            if (failedDeletions != 0) {
+                addInfo("There were " + failedDeletions + " failed deletion attempts.");
+            }
+        }
     }
 
     protected void descendingSort(File[] matchingFileArray, Instant instant) {
@@ -245,12 +260,10 @@ public class TimeBasedArchiveRemover extends ContextAwareBase implements Archive
         return "c.q.l.core.rolling.helper.TimeBasedArchiveRemover";
     }
 
-
-
-    public class ArhiveRemoverRunnable implements Runnable {
+    public class ArchiveRemoverRunnable implements Runnable {
         Instant now;
 
-        ArhiveRemoverRunnable(Instant now) {
+        ArchiveRemoverRunnable(Instant now) {
             this.now = now;
         }
 

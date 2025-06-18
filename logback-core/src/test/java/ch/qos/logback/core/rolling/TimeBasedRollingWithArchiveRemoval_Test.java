@@ -14,14 +14,17 @@
 package ch.qos.logback.core.rolling;
 
 import static ch.qos.logback.core.CoreConstants.DAILY_DATE_PATTERN;
+import static ch.qos.logback.core.CoreConstants.STRICT_ISO8601_PATTERN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.FileFilter;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -30,10 +33,12 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.time.temporal.ChronoUnit;
 
+import ch.qos.logback.core.util.StatusPrinter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -53,6 +58,8 @@ public class TimeBasedRollingWithArchiveRemoval_Test extends ScaffoldingForRolli
 
     RollingFileAppender<Object> rfa = new RollingFileAppender<Object>();
     TimeBasedRollingPolicy<Object> tbrp = new TimeBasedRollingPolicy<Object>();
+
+    DateTimeFormatter STRICT_DATE_PARSER = DateTimeFormatter.ofPattern(STRICT_ISO8601_PATTERN);
 
     // by default tbfnatp is an instance of
     // DefaultTimeBasedFileNamingAndTriggeringPolicy
@@ -264,8 +271,8 @@ public class TimeBasedRollingWithArchiveRemoval_Test extends ScaffoldingForRolli
 
     @Test
     public void dailySizeBasedRolloverWithoutCap() {
-        SizeAndTimeBasedFNATP<Object> sizeAndTimeBasedFNATP = new SizeAndTimeBasedFNATP<Object>();
-        sizeAndTimeBasedFNATP.invocationGate = fixedRateInvocationGate;
+        SizeAndTimeBasedFileNamingAndTriggeringPolicy<Object> sizeAndTimeBasedFNATP = new SizeAndTimeBasedFileNamingAndTriggeringPolicy<Object>();
+        //sizeAndTimeBasedFNATP.invocationGate = fixedRateInvocationGate;
 
         sizeAndTimeBasedFNATP.setMaxFileSize(new FileSize(10000));
         tbfnatp = sizeAndTimeBasedFNATP;
@@ -278,10 +285,9 @@ public class TimeBasedRollingWithArchiveRemoval_Test extends ScaffoldingForRolli
 
     @Test
     public void dailySizeBasedRolloverWithSizeCap() {
-        SizeAndTimeBasedFNATP<Object> sizeAndTimeBasedFNATP = new SizeAndTimeBasedFNATP<Object>();
-        sizeAndTimeBasedFNATP.invocationGate = new FixedRateInvocationGate(ticksPerPeriod / 8);
-        long bytesPerPeriod = 17000;
-        long fileSize = (bytesPerPeriod) / 5;
+        SizeAndTimeBasedFileNamingAndTriggeringPolicy<Object> sizeAndTimeBasedFNATP = new SizeAndTimeBasedFileNamingAndTriggeringPolicy<Object>();
+
+        long fileSize = 3400;
         int expectedFileCount = 10;
         long sizeCap = expectedFileCount * fileSize;
         sizeAndTimeBasedFNATP.setMaxFileSize(new FileSize(fileSize));
@@ -289,7 +295,9 @@ public class TimeBasedRollingWithArchiveRemoval_Test extends ScaffoldingForRolli
         this.slashCount = computeSlashCount(DAILY_DATE_PATTERN);
 
         // 2016-03-05 00:14:39 CET
-        long simulatedTime = 1457133279186L;
+        //long simulatedTime = 1457133279186L;
+        long simulatedTime = getSimulatedTimeFromString("2016-03-05T00:14:39,186");
+
         ConfigParameters params = new ConfigParameters(simulatedTime);
         String fileNamePattern = randomOutputDir + "/%d{" + DAILY_DATE_PATTERN + "}-clean.%i";
         params.maxHistory(60).fileNamePattern(fileNamePattern).simulatedNumberOfPeriods(10).sizeCap(sizeCap);
@@ -303,15 +311,36 @@ public class TimeBasedRollingWithArchiveRemoval_Test extends ScaffoldingForRolli
                 return s0.compareTo(s1);
             }
         });
-        checkFileCount(expectedFileCount - 1);
+
+        StatusPrinter.print(context);
+        foundFiles.forEach(f -> System.out.println(""+f+ " "+f.length()));
+        LongAdder la = new LongAdder();
+        foundFiles.forEach(f -> la.add(f.length()));
+        System.out.println("Sum: "+la.sum());
+
+        // adding fileSize to sizeCap may make sense
+        assertTrue(la.sum() < sizeCap);
+
+        checkFileCount(expectedFileCount + 1);
+    }
+
+    /**
+     * The returned millis is based on local time
+     * @param dateStr
+     * @return
+     */
+    private long getSimulatedTimeFromString(String dateStr) {
+        LocalDateTime localDateTime = LocalDateTime.parse(dateStr, STRICT_DATE_PARSER);
+        long simulatedTime = localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        return simulatedTime;
     }
 
     @Test
     public void dailyChronologSizeBasedRollover() {
-        SizeAndTimeBasedFNATP<Object> sizeAndTimeBasedFNATP = new SizeAndTimeBasedFNATP<Object>();
-        sizeAndTimeBasedFNATP.setMaxFileSize(new FileSize(10000));
-        sizeAndTimeBasedFNATP.invocationGate = fixedRateInvocationGate;
-        tbfnatp = sizeAndTimeBasedFNATP;
+        SizeAndTimeBasedFileNamingAndTriggeringPolicy<Object> sizeAndTimeBasedFileNamingAndTriggeringPolicy = new SizeAndTimeBasedFileNamingAndTriggeringPolicy<Object>();
+        sizeAndTimeBasedFileNamingAndTriggeringPolicy.setMaxFileSize(new FileSize(10000));
+        //sizeAndTimeBasedFileNamingAndTriggeringPolicy.invocationGate = fixedRateInvocationGate;
+        tbfnatp = sizeAndTimeBasedFileNamingAndTriggeringPolicy;
         slashCount = 1;
         String fileNamePattern = randomOutputDir + "/%d{" + DAILY_DATE_PATTERN + "}/clean.%i.zip";
         cp.maxHistory(5).fileNamePattern(fileNamePattern).simulatedNumberOfPeriods(5 * 3);
@@ -321,10 +350,10 @@ public class TimeBasedRollingWithArchiveRemoval_Test extends ScaffoldingForRolli
 
     @Test
     public void dailyChronologSizeBasedRolloverWithSecondPhase() {
-        SizeAndTimeBasedFNATP<Object> sizeAndTimeBasedFNATP = new SizeAndTimeBasedFNATP<Object>();
-        sizeAndTimeBasedFNATP.setMaxFileSize(new FileSize(10000));
-        sizeAndTimeBasedFNATP.invocationGate = fixedRateInvocationGate;
-        tbfnatp = sizeAndTimeBasedFNATP;
+        SizeAndTimeBasedFileNamingAndTriggeringPolicy<Object> sizeAndTimeBasedFileNamingAndTriggeringPolicy = new SizeAndTimeBasedFileNamingAndTriggeringPolicy<Object>();
+        sizeAndTimeBasedFileNamingAndTriggeringPolicy.setMaxFileSize(new FileSize(10000));
+        //sizeAndTimeBasedFileNamingAndTriggeringPolicy.invocationGate = fixedRateInvocationGate;
+        tbfnatp = sizeAndTimeBasedFileNamingAndTriggeringPolicy;
         this.slashCount = 1;
         String fileNamePattern = randomOutputDir + "/%d{" + DAILY_DATE_PATTERN + "}/clean.%i";
         int maxHistory = 5;
@@ -453,13 +482,7 @@ public class TimeBasedRollingWithArchiveRemoval_Test extends ScaffoldingForRolli
         for (int i = 0; i <= runLength; i++) {
             Date currentDate = new Date(tbrp.timeBasedFileNamingAndTriggeringPolicy.getCurrentTime());
             if (i < startInactivityIndex || i > endInactivityIndex) {
-                StringBuilder sb = new StringBuilder("Hello");
-                String currentDateStr = currentDate.toString();
-                String iAsString = Integer.toString(i);
-                sb.append(currentDateStr);
-                SpacePadder.spacePad(sb, 66 + (3 - iAsString.length() - currentDateStr.length()));
-                sb.append(iAsString);
-                rfa.doAppend(sb.toString());
+                rfa.doAppend(buildMessageString(currentDate, i));
             }
 
             tbrp.timeBasedFileNamingAndTriggeringPolicy.setCurrentTime(
@@ -481,6 +504,16 @@ public class TimeBasedRollingWithArchiveRemoval_Test extends ScaffoldingForRolli
         // System.out.println("Current time at end of loop: "+new
         // Date(tbrp.timeBasedFileNamingAndTriggeringPolicy.getCurrentTime()));
         return tbrp.timeBasedFileNamingAndTriggeringPolicy.getCurrentTime();
+    }
+
+    private static String buildMessageString(Date currentDate, int i) {
+        StringBuilder sb = new StringBuilder("Hello");
+        String currentDateStr = currentDate.toString();
+        String iAsString = Integer.toString(i);
+        sb.append(currentDateStr);
+        SpacePadder.spacePad(sb, 68 + (3 - iAsString.length() - currentDateStr.length() - CoreConstants.LINE_SEPARATOR_LEN));
+        sb.append(iAsString);
+        return sb.toString();
     }
 
     void fillWithChar(StringBuffer sb, char c, int count) {

@@ -27,16 +27,16 @@ public class CoreConstants {
     /**
      * Number of idle threads to retain in a context's executor service.
      */
-    public static final int CORE_POOL_SIZE = 0;
+    public static final int CORE_POOL_SIZE = 4;
 
     // In Java 21 and later the actual threads are assumed to be virtual
     public static final int SCHEDULED_EXECUTOR_POOL_SIZE = 4;
 
     /**
      * Maximum number of threads to allow in a context's executor service.
+     * @deprecated no longer used
+     *
      */
-    // if you need a different MAX_POOL_SIZE, please file create a github issue
-    // asking for a larger MAX_POOL_SIZE parameter.
     public static final int MAX_POOL_SIZE = 32;
 
     // Note that the line.separator property can be looked up even by
@@ -44,22 +44,46 @@ public class CoreConstants {
     public static final String LINE_SEPARATOR = System.getProperty("line.separator");
     public static final int LINE_SEPARATOR_LEN = LINE_SEPARATOR.length();
 
-    public static final String CODES_URL = "http://logback.qos.ch/codes.html";
-    public static final String MANUAL_URL_PREFIX = "http://logback.qos.ch/manual/";
+    public static final String CODES_URL = "https://logback.qos.ch/codes.html";
+    public static final String MANUAL_URL_PREFIX = "https://logback.qos.ch/manual/";
     public static final String MORE_INFO_PREFIX = "For more information, please visit ";
 
     /**
      * The default context name.
      */
     public static final String DEFAULT_CONTEXT_NAME = "default";
+
+    /**
+     * Customized pattern conversion rules are stored under this key in the
+     * {@link Context} object store.
+     *
+     * @since 1.5.14
+     */
+    public static final String PATTERN_RULE_REGISTRY_FOR_SUPPLIERS = "PATTERN_RULE_REGISTRY_FOR_SUPPLIERS";
+
     /**
      * Customized pattern conversion rules are stored under this key in the
      * {@link Context} object store.
      */
     public static final String PATTERN_RULE_REGISTRY = "PATTERN_RULE_REGISTRY";
 
+
+
     public static final String ISO8601_STR = "ISO8601";
     public static final String ISO8601_PATTERN = "yyyy-MM-dd HH:mm:ss,SSS";
+
+    /**
+     * Keyword for setting a strict ISO8601 pattern which includes 'T' between the date and the time
+     *
+     * @since 1.5.7
+     */
+    public static final String STRICT_STR = "STRICT";
+    /**
+     * Strict ISO8601 pattern which includes 'T' between the date and the time
+     * @since 15.7
+     */
+    public static final String STRICT_ISO8601_PATTERN = "yyyy-MM-dd'T'HH:mm:ss,SSS";
+
 
     public static final String FILE_TIMESTAMP_PATTERN = "yyyy-MM-dd'T'HHmm";
     public static final String DAILY_DATE_PATTERN = "yyyy-MM-dd";
@@ -137,6 +161,8 @@ public class CoreConstants {
     public static final char SINGLE_QUOTE_CHAR = '\'';
     public static final char COLON_CHAR = ':';
     public static final char DASH_CHAR = '-';
+    public static final char EQUALS_CHAR = '=';
+
     public static final String DEFAULT_VALUE_SEPARATOR = ":-";
 
     public static final String NULL_STR = "null";
@@ -224,9 +250,14 @@ public class CoreConstants {
     public static final int UNBOUND_HISTORY = UNBOUNDED_HISTORY;
     
     //public static final String RECONFIGURE_ON_CHANGE_TASK = "RECONFIGURE_ON_CHANGE_TASK";
-    public static final String SIZE_AND_TIME_BASED_FNATP_IS_DEPRECATED = "SizeAndTimeBasedFNATP is deprecated. Use SizeAndTimeBasedRollingPolicy instead";
+    public static final String SIZE_AND_TIME_BASED_FNATP_IS_DEPRECATED = "Direct use of either SizeAndTimeBasedFNATP or SizeAndTimeBasedFileNamingAndTriggeringPolicy ";
+    public static final String SIZE_AND_TIME_BASED_FNATP_IS_DEPRECATED_BIS = "is deprecated. Please use SizeAndTimeBasedRollingPolicy instead.";
 
-    public static final String LOGBACK_CLASSIC_VERSION_MESSAGE = "This is logback-classic version ";
     public static final char JSON_LINE_SEPARATOR = '\n';
     final public static String MODEL_CONFIG_FILE_EXTENSION = ".scmo";
+    /**
+     * since 1.5.8
+     */
+    final public static String PROPERTIES_FILE_EXTENSION = ".properties";
+    public static final String LOGBACK_CORE_VERSION_MESSAGE = "This is logback-core version ";
 }

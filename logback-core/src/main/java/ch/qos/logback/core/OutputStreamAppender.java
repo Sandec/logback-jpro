@@ -21,6 +21,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import ch.qos.logback.core.encoder.Encoder;
 import ch.qos.logback.core.encoder.LayoutWrappingEncoder;
+import ch.qos.logback.core.rolling.LengthCounter;
 import ch.qos.logback.core.spi.DeferredProcessingAware;
 import ch.qos.logback.core.status.ErrorStatus;
 
@@ -77,9 +78,17 @@ public class OutputStreamAppender<E> extends UnsynchronizedAppenderBase<E> {
             addStatus(new ErrorStatus("No output stream set for the appender named \"" + name + "\".", this));
             errors++;
         }
+
+        if (encoder == null) {
+            addWarn("Encoder has not been set. Cannot invoke its init method.");
+            errors++;
+        }
+
+
         // only error free appenders should be activated
         if (errors == 0) {
             super.start();
+            encoderInit();
         }
     }
 
@@ -127,7 +136,7 @@ public class OutputStreamAppender<E> extends UnsynchronizedAppenderBase<E> {
     protected void closeOutputStream() {
         if (this.outputStream != null) {
             try {
-                // before closing we have to output out layout's footer
+                // before closing we have to output out encooder's footer
                 encoderClose();
                 this.outputStream.close();
                 this.outputStream = null;
@@ -164,12 +173,14 @@ public class OutputStreamAppender<E> extends UnsynchronizedAppenderBase<E> {
             // close any previously opened output stream
             closeOutputStream();
             this.outputStream = outputStream;
-            if (encoder == null) {
-                addWarn("Encoder has not been set. Cannot invoke its init method.");
-                return;
-            }
 
-            encoderInit();
+            // the first call to setOutputStream() is made on a non started appender
+            // However, in subsequent calls to setOutputStream() the appender will be in
+            // started state. In subsequent calls, in particular when opening a file after rollover,
+            // we have to output the header hence the call to encoderInit().
+            if(isStarted()) {
+                encoderInit();
+            }
         } finally {
             streamWriteLock.unlock();
         }
@@ -198,11 +209,20 @@ public class OutputStreamAppender<E> extends UnsynchronizedAppenderBase<E> {
             return;
 
         streamWriteLock.lock();
+
         try {
-            writeByteArrayToOutputStreamWithPossibleFlush(byteArray);
+            // guard against appender having been stop() in parallel
+            // note that the encoding step is performed outside the protection of the streamWriteLock
+            if(isStarted()) {
+                writeByteArrayToOutputStreamWithPossibleFlush(byteArray);
+                updateByteCount(byteArray);
+            }
         } finally {
             streamWriteLock.unlock();
         }
+    }
+
+    protected void updateByteCount(byte[] byteArray) {
     }
 
     /**

@@ -24,14 +24,7 @@ import ch.qos.logback.core.joran.spi.RuleStore;
 import ch.qos.logback.core.joran.spi.SaxEventInterpretationContext;
 import ch.qos.logback.core.joran.spi.SaxEventInterpreter;
 import ch.qos.logback.core.model.*;
-import ch.qos.logback.core.model.conditional.ElseModel;
-import ch.qos.logback.core.model.conditional.IfModel;
-import ch.qos.logback.core.model.conditional.ThenModel;
 import ch.qos.logback.core.model.processor.*;
-import ch.qos.logback.core.model.processor.conditional.ElseModelHandler;
-import ch.qos.logback.core.model.processor.conditional.IfModelHandler;
-import ch.qos.logback.core.model.processor.conditional.ThenModelHandler;
-import ch.qos.logback.core.sift.SiftModelHandler;
 import ch.qos.logback.core.spi.ContextAware;
 
 // Based on 310985 revision 310985 as attested by http://tinyurl.com/8njps
@@ -129,28 +122,7 @@ abstract public class JoranConfiguratorBase<E> extends GenericXMLConfigurator {
 
     @Override
     protected void addModelHandlerAssociations(DefaultProcessor defaultProcessor) {
-        defaultProcessor.addHandler(ImportModel.class, ImportModelHandler::makeInstance);
-
-        defaultProcessor.addHandler(ShutdownHookModel.class, ShutdownHookModelHandler::makeInstance);
-        defaultProcessor.addHandler(SequenceNumberGeneratorModel.class, SequenceNumberGeneratorModelHandler::makeInstance);
-
-        defaultProcessor.addHandler(EventEvaluatorModel.class, EventEvaluatorModelHandler::makeInstance);
-        defaultProcessor.addHandler(DefineModel.class, DefineModelHandler::makeInstance);
-        defaultProcessor.addHandler(IncludeModel.class, NOPModelHandler::makeInstance);
-
-        
-        defaultProcessor.addHandler(ParamModel.class, ParamModelHandler::makeInstance);
-        defaultProcessor.addHandler(PropertyModel.class, PropertyModelHandler::makeInstance);
-        defaultProcessor.addHandler(TimestampModel.class, TimestampModelHandler::makeInstance);
-        defaultProcessor.addHandler(StatusListenerModel.class, StatusListenerModelHandler::makeInstance);
-        defaultProcessor.addHandler(ImplicitModel.class, ImplicitModelHandler::makeInstance);
-        
-        defaultProcessor.addHandler(IfModel.class, IfModelHandler::makeInstance);
-        defaultProcessor.addHandler(ThenModel.class, ThenModelHandler::makeInstance);
-        defaultProcessor.addHandler(ElseModel.class, ElseModelHandler::makeInstance);
-        
-        defaultProcessor.addHandler(SiftModel.class, SiftModelHandler::makeInstance);
-        
+        // Please note that code previously here moved to ModelClassToModelHandlerLinkerBase
     }
 
 }

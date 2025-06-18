@@ -14,27 +14,47 @@
 package ch.qos.logback.core.joran.spi;
 
 import ch.qos.logback.core.spi.ContextAwareBase;
+import ch.qos.logback.core.util.MD5Util;
 
 import java.io.File;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static ch.qos.logback.core.CoreConstants.PROPERTIES_FILE_EXTENSION;
 
 /**
  * @author Ceki G&uuml;lc&uuml;
  */
 public class ConfigurationWatchList extends ContextAwareBase {
 
+    public static final String HTTPS_PROTOCOL_STR = "https";
+    public static final String HTTP_PROTOCOL_STR = "http";
+    public static final String FILE_PROTOCOL_STR = "file";
+
+    static final String[] WATCHABLE_PROTOCOLS = new String[] { FILE_PROTOCOL_STR, HTTPS_PROTOCOL_STR, HTTP_PROTOCOL_STR };
+
+    static final byte[] BUF_ZERO = new byte[] { 0 };
+
     URL mainURL;
-    List<File> fileWatchList = new ArrayList<File>();
-    List<Long> lastModifiedList = new ArrayList<Long>();
+    List<File> fileWatchList = new ArrayList<>();
+    List<URL> urlWatchList = new ArrayList<>();
+    List<byte[]> lastHashList = new ArrayList<>();
+
+    List<Long> lastModifiedList = new ArrayList<>();
 
     public ConfigurationWatchList buildClone() {
         ConfigurationWatchList out = new ConfigurationWatchList();
         out.mainURL = this.mainURL;
         out.fileWatchList = new ArrayList<File>(this.fileWatchList);
         out.lastModifiedList = new ArrayList<Long>(this.lastModifiedList);
+        out.lastHashList = new ArrayList<>(this.lastHashList);
         return out;
     }
 
@@ -42,11 +62,13 @@ public class ConfigurationWatchList extends ContextAwareBase {
         this.mainURL = null;
         lastModifiedList.clear();
         fileWatchList.clear();
+        urlWatchList.clear();
+        lastHashList.clear();
     }
 
     /**
      * The mainURL for the configuration file. Null values are allowed.
-     * 
+     *
      * @param mainURL
      */
     public void setMainURL(URL mainURL) {
@@ -54,6 +76,32 @@ public class ConfigurationWatchList extends ContextAwareBase {
         this.mainURL = mainURL;
         if (mainURL != null)
             addAsFileToWatch(mainURL);
+    }
+
+    public boolean watchPredicateFulfilled() {
+        if (hasMainURLAndNonEmptyFileList()) {
+            return true;
+        }
+
+        if(urlListContainsProperties()) {
+            return true;
+        }
+
+        return fileWatchListContainsProperties();
+
+    }
+
+    private boolean urlListContainsProperties() {
+        return urlWatchList.stream().anyMatch(url -> url.toString().endsWith(PROPERTIES_FILE_EXTENSION));
+    }
+
+    private boolean hasMainURLAndNonEmptyFileList() {
+        return mainURL != null && !fileWatchList.isEmpty();
+    }
+
+    private boolean fileWatchListContainsProperties() {
+        return fileWatchList.stream().anyMatch(file -> file.getName().endsWith(PROPERTIES_FILE_EXTENSION));
+
     }
 
     private void addAsFileToWatch(URL url) {
@@ -64,8 +112,37 @@ public class ConfigurationWatchList extends ContextAwareBase {
         }
     }
 
+
+    private boolean isHTTP_Or_HTTPS(URL url) {
+        String protocolStr = url.getProtocol();
+        return isHTTP_Or_HTTPS(protocolStr);
+    }
+
+    private boolean isHTTP_Or_HTTPS(String protocolStr) {
+        return (protocolStr.equals(HTTP_PROTOCOL_STR) || protocolStr.equals(HTTPS_PROTOCOL_STR));
+    }
+
+    private void addAsHTTP_or_HTTPS_URLToWatch(URL url) {
+        if(isHTTP_Or_HTTPS(url)) {
+            urlWatchList.add(url);
+            lastHashList.add(BUF_ZERO);
+        }
+    }
+
+    /**
+     * Add the url but only if it is file://.
+     * @param url should be a file
+     */
+
     public void addToWatchList(URL url) {
-        addAsFileToWatch(url);
+        String protocolStr = url.getProtocol();
+        if (protocolStr.equals(FILE_PROTOCOL_STR)) {
+            addAsFileToWatch(url);
+        } else if (isHTTP_Or_HTTPS(protocolStr)) {
+            addAsHTTP_or_HTTPS_URLToWatch(url);
+        } else {
+            addInfo("Cannot watch ["+url + "] as its protocol is not one of file, http or https.");
+        }
     }
 
     public URL getMainURL() {
@@ -76,18 +153,88 @@ public class ConfigurationWatchList extends ContextAwareBase {
         return new ArrayList<File>(fileWatchList);
     }
 
-    public boolean changeDetected() {
+
+    public boolean emptyWatchLists() {
+        if(fileWatchList != null && !fileWatchList.isEmpty()) {
+            return false;
+        }
+
+        if(urlWatchList != null && !urlWatchList.isEmpty()) {
+            return false;
+        }
+        return true;
+    }
+
+
+    /**
+     *
+     * @deprecated replaced by {@link #changeDetectedInFile()}
+     */
+    public File changeDetected() {
+      return changeDetectedInFile();
+    }
+
+    /**
+     * Has a changed been detected in one of the files being watched?
+     * @return
+     */
+    public File changeDetectedInFile() {
         int len = fileWatchList.size();
+
         for (int i = 0; i < len; i++) {
             long lastModified = lastModifiedList.get(i);
             File file = fileWatchList.get(i);
-            if (lastModified != file.lastModified()) {
-                return true;
+            long actualModificationDate = file.lastModified();
+
+            if (lastModified != actualModificationDate) {
+                // update modification date in case this instance is reused
+                lastModifiedList.set(i, actualModificationDate);
+                return file;
             }
         }
-        return false;
-        // return (lastModified != fileToScan.lastModified() && lastModified !=
-        // SENTINEL);
+        return null;
+    }
+
+    public URL changeDetectedInURL() {
+        int len = urlWatchList.size();
+
+        for (int i = 0; i < len; i++) {
+            byte[] lastHash = this.lastHashList.get(i);
+            URL url = urlWatchList.get(i);
+
+            HttpUtil httpGetUtil = new HttpUtil(HttpUtil.RequestMethod.GET, url);
+            HttpURLConnection getConnection = httpGetUtil.connectTextTxt();
+            String response = httpGetUtil.readResponse(getConnection);
+
+            byte[] hash = computeHash(response);
+            if (lastHash == BUF_ZERO) {
+                this.lastHashList.set(i, hash);
+                return null;
+            }
+
+            if (Arrays.equals(lastHash, hash)) {
+                return null;
+            } else {
+                this.lastHashList.set(i, hash);
+                return url;
+            }
+        }
+        return null;
+    }
+
+    private byte[] computeHash(String response) {
+        if (response == null || response.trim().length() == 0) {
+            return null;
+        }
+
+        try {
+            MD5Util md5Util = new MD5Util();
+            byte[] hashBytes = md5Util.md5Hash(response);
+            return hashBytes;
+        } catch (NoSuchAlgorithmException e) {
+            addError("missing MD5 algorithm", e);
+            return null;
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -101,4 +248,47 @@ public class ConfigurationWatchList extends ContextAwareBase {
         }
     }
 
+    /**
+     * Returns true if there are watchable files, false otherwise.
+     * @return true if there are watchable files,  false otherwise.
+     * @since 1.5.8
+     */
+    public boolean hasAtLeastOneWatchableFile() {
+        return !fileWatchList.isEmpty();
+    }
+
+    /**
+     * Is protocol for the given URL a protocol that we can watch for.
+     *
+     * @param url
+     * @return true if watchable, false otherwise
+     * @since 1.5.9
+     */
+    static public boolean isWatchableProtocol(URL url) {
+        if (url == null) {
+            return false;
+        }
+        String protocolStr = url.getProtocol();
+        return Arrays.stream(WATCHABLE_PROTOCOLS).anyMatch(protocol -> protocol.equalsIgnoreCase(protocolStr));
+    }
+
+    /**
+     * Is the given protocol a protocol that we can watch for.
+     *
+     * @param protocolStr
+     * @return true if watchable, false otherwise
+     * @since 1.5.9
+     */
+    static public boolean isWatchableProtocol(String protocolStr) {
+        return Arrays.stream(WATCHABLE_PROTOCOLS).anyMatch(protocol -> protocol.equalsIgnoreCase(protocolStr));
+    }
+
+    @Override
+    public String toString() {
+
+        String fileWatchListStr = fileWatchList.stream().map(File::getPath).collect(Collectors.joining(", "));
+        String urlWatchListStr = urlWatchList.stream().map(URL::toString).collect(Collectors.joining(", "));
+
+        return "ConfigurationWatchList(" + "mainURL=" + mainURL + ", fileWatchList={" + fileWatchListStr + "}, urlWatchList=[" + urlWatchListStr + "})";
+    }
 }
