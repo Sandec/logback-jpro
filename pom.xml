@@ -8,7 +8,7 @@
 
   <groupId>ch.qos.logback</groupId>
   <artifactId>logback-parent</artifactId>
-  <version>1.5.18</version>
+  <version>1.5.18-jpro</version>
   <packaging>pom</packaging>
 
   <name>Logback-Parent</name>
@@ -444,9 +444,13 @@
   <distributionManagement>
 
     <repository>
-      <id>sonatype-nexus-staging</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+      <id>jpro-sandec-repository</id>
+      <url>https://sandec.jfrog.io/artifactory/repo</url>
     </repository>
+    <snapshotRepository>
+      <id>jpro-sandec-repository-snapshots</id>
+      <url>https://sandec.jfrog.io/artifactory/repo</url>
+    </snapshotRepository>
 
   </distributionManagement>
 

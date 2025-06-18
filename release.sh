@@ -1,35 +1,33 @@
-mvn versions:set -DgenerateBackupPoms=false -DnewVersion=${VERSION_NUMBER} 
+if [[ "$JAVA_HOME" != *"temurin-21.jdk"* ]]; then
+  echo "###################################################"
+  echo "### Please use Temurin version 21 for the build ###"
+  echo "###################################################"
+  say "Use Java 21"
+  exit 1
+fi
 
-# mvn  -Dmaven.javadoc.skippedModules=logback-core-blackbox,logback-classic-blackbox,logback-examples javadoc:aggregate
-
-# mvn -Ddoclint=none -Dmaven.javadoc.skippedModules=slf4j-ext,log4j-over-slf4j,log4j-over-slf4j-blackbox,jul-to-slf4j-blackbox,slf4j-migrator,osgi-over-slf4j javadoc:aggregate
-
-#mvn -Ddoclint=none  -DXXadditionalparam=-Xdoclint:none -Dmaven.javadoc.skippedModules=osgi-over-slf4j,slf4j-ext,log4j-over-slf4j-blackbox,log4j-over-slf4j javadoc:aggregate
-
-
-
-
+mvn versions:set -DgenerateBackupPoms=false -DnewVersion=1.5.18-jpro
 
 mvn clean
-mvn install
+mvn install -DskipTests=true
 mvn animal-sniffer:check
-mvn site:site
+#mvn site:site
 
 #mvn javadoc:jar
 #mvn assembly:single
 
-export GPG_TTY=$(tty)
-password
-mvn deploy -P javadocjar,sign-artifacts -Dgpg.passphrase=passwd
-
+#export GPG_TTY=$(tty)
+#password
+#mvn deploy -P javadocjar,sign-artifacts -Dgpg.passphrase=passwd
+mvn deploy -DskipTests=true -P javadocjar
 
 
 # cleanHistory dep
 #uncomment diffie-hellman support in /etc/ssh/sshd_config
 
-mvn site:deploy -N # with Java 8!!!
+#mvn site:deploy -N # with Java 8!!!
 
-git tag -m "tagging" -a v_${VERSION_NUMBER}
-git push --tags
+#git tag -m "tagging" -a v_${VERSION_NUMBER}
+#git push --tags
 
-release version and add next version on jira
+#release version and add next version on jira
